@@ -1,19 +1,20 @@
 # 매일 아침 메일 발송 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **테스트 정책:** 사용자 요청으로 태스크별 유닛 테스트 작성은 생략한다. 대신 Task 13에서 `bin/publish.js --demo`로 전체 파이프라인을 한 번에 실행해 검증한다 (ponytail: 개별 유닛 테스트 대신 종단 스모크 실행 하나로 대체 — 결과물이 눈에 보이는 개인용 CLI라 이 정도로 충분, 로직이 복잡해지면 다시 유닛 테스트 추가).
 
 **Goal:** 매일 국내/미국 시황 + 종목픽을 수집 → AI로 카피를 생성 → `templates/neon.html` 기반 PNG 카드 4장을 렌더 → 네이버 메일로 본인에게 발송하는 CLI 파이프라인을 만든다.
 
 **Architecture:** `collect (KR/US/뉴스) → summarize (Anthropic 구조화 출력) → assembleCardCopy (숫자는 수집 데이터, 문구는 AI) → render (Playwright 스크린샷) → notify (nodemailer)`. 각 단계는 독립 모듈, `pipeline.js`가 순서대로 호출. 인스타 자동 업로드(Phase 2)는 이번 범위 밖.
 
-**Tech Stack:** Node.js (ESM, `"type": "module"`), `@anthropic-ai/sdk`, `playwright`(chromium), `yahoo-finance2`, `rss-parser`, `nodemailer`, 테스트는 `node --test`(프레임워크 없음).
+**Tech Stack:** Node.js (ESM, `"type": "module"`), `@anthropic-ai/sdk`, `playwright`(chromium), `yahoo-finance2`, `rss-parser`, `nodemailer`.
 
 ## Global Constraints
 
 - Node.js >= 20.6 (native `fetch`, `process.loadEnvFile`) — package.json의 `engines.node`에 명시.
 - 전 파일 ESM(`import`/`export`), CommonJS 금지.
 - 새 의존성은 아래 5개로 제한: `@anthropic-ai/sdk`, `playwright`, `yahoo-finance2`, `rss-parser`, `nodemailer`. 그 외(axios, dotenv, cheerio 등) 추가 금지 — 각각 native fetch/`process.loadEnvFile`/watchlist 기반 조회로 대체됨.
-- 테스트는 `node:test` + `node:assert`만 사용, 별도 프레임워크 설치 금지.
 - 모델: `claude-opus-4-8` 고정.
 - 스타일: 이번 범위에서 `neon` 템플릿만 지원 (`STYLE=neon` 기본값, 다른 값이면 명확한 에러로 실패).
 - 인스타그램 발행(`publish.js`)은 만들지 않는다 — 이번 라운드 범위 아님.
@@ -43,7 +44,7 @@
 - Create: `.env.example`
 
 **Interfaces:**
-- Produces: `npm run publish`, `npm test` 스크립트. 이후 모든 태스크가 이 의존성들을 사용.
+- Produces: `npm run publish` 스크립트. 이후 모든 태스크가 이 의존성들을 사용.
 
 - [ ] **Step 1: `package.json` 작성**
 
@@ -55,8 +56,7 @@
   "type": "module",
   "engines": { "node": ">=20.6" },
   "scripts": {
-    "publish": "node bin/publish.js",
-    "test": "node --test"
+    "publish": "node bin/publish.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
@@ -96,38 +96,11 @@ git commit -m "chore: 프로젝트 스캐폴드 + 의존성"
 
 **Files:**
 - Create: `src/config.js`
-- Test: `src/config.test.js`
 
 **Interfaces:**
 - Produces: `config.STYLE: string`, `config.KR_WATCHLIST: {code: string, name: string}[]` — Task 5(collect/kr), Task 9(render), Task 11(pipeline)에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
-
-```js
-// src/config.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { config } from './config.js'
-
-test('기본 STYLE은 neon', () => {
-  assert.equal(config.STYLE, 'neon')
-})
-
-test('KR_WATCHLIST는 code/name을 가진 5개 종목', () => {
-  assert.equal(config.KR_WATCHLIST.length, 5)
-  for (const item of config.KR_WATCHLIST) {
-    assert.equal(typeof item.code, 'string')
-    assert.equal(typeof item.name, 'string')
-  }
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/config.test.js`
-Expected: FAIL — `Cannot find module './config.js'`
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/config.js
@@ -143,15 +116,10 @@ export const config = {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/config.test.js`
-Expected: PASS (2 tests)
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/config.js src/config.test.js
+git add src/config.js
 git commit -m "feat: config.js 추가"
 ```
 
@@ -161,35 +129,12 @@ git commit -m "feat: config.js 추가"
 
 **Files:**
 - Create: `src/collect/us.js`
-- Test: `src/collect/us.test.js`
 
 **Interfaces:**
 - Consumes: `yahoo-finance2`의 `yahooFinance.quote(symbols: string[])`.
-- Produces: `collectUs({demo}) => Promise<{sp500, nasdaq, dow}>` 각 항목은 `{value: string, pct: string, isUp: boolean}`. Task 6(collect/index), Task 11(pipeline)에서 사용.
+- Produces: `collectUs({demo}) => Promise<{sp500, nasdaq, dow}>` 각 항목은 `{value: string, pct: string, isUp: boolean}`. `demoUs()`는 고정 샘플을 반환(네트워크 없음). Task 6, Task 11에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성 (demo 모드, 네트워크 없음)**
-
-```js
-// src/collect/us.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { collectUs } from './us.js'
-
-test('demo 모드는 네트워크 없이 sp500/nasdaq/dow를 반환', async () => {
-  const result = await collectUs({ demo: true })
-  for (const key of ['sp500', 'nasdaq', 'dow']) {
-    assert.equal(typeof result[key].value, 'string')
-    assert.equal(typeof result[key].isUp, 'boolean')
-  }
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/collect/us.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/collect/us.js
@@ -227,15 +172,15 @@ export async function collectUs({ demo = false } = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [ ] **Step 2: 동작 확인 (네트워크 없이 demo로 한 번 실행)**
 
-Run: `node --test src/collect/us.test.js`
-Expected: PASS
+Run: `node -e "import('./src/collect/us.js').then(m => m.collectUs({demo:true})).then(console.log)"`
+Expected: `{ sp500: {...}, nasdaq: {...}, dow: {...} }` 콘솔 출력.
 
-- [ ] **Step 5: 커밋**
+- [ ] **Step 3: 커밋**
 
 ```bash
-git add src/collect/us.js src/collect/us.test.js
+git add src/collect/us.js
 git commit -m "feat: 미국 시황 수집(collect/us) 추가"
 ```
 
@@ -245,36 +190,12 @@ git commit -m "feat: 미국 시황 수집(collect/us) 추가"
 
 **Files:**
 - Create: `src/collect/kr.js`
-- Test: `src/collect/kr.test.js`
 
 **Interfaces:**
 - Consumes: native `fetch`, `config.KR_WATCHLIST` (Task 2의 `{code,name}[]`).
-- Produces: `collectKr(watchlist, {demo}) => Promise<{kospi, kosdaq, watchlist}>`. `kospi`/`kosdaq`은 `{value, pct, isUp}`, `watchlist`는 `{code, name, value, pct, isUp}[]`. Task 6, Task 11에서 사용.
+- Produces: `collectKr(watchlist, {demo}) => Promise<{kospi, kosdaq, watchlist}>`. `kospi`/`kosdaq`은 `{value, pct, isUp}`, `watchlist`는 `{code, name, value, pct, isUp}[]`. `demoKr(watchlist)`는 고정 샘플(네트워크 없음). Task 6, Task 11에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
-
-```js
-// src/collect/kr.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { collectKr } from './kr.js'
-import { config } from '../config.js'
-
-test('demo 모드는 네트워크 없이 kospi/kosdaq/watchlist를 반환', async () => {
-  const result = await collectKr(config.KR_WATCHLIST, { demo: true })
-  assert.equal(typeof result.kospi.value, 'string')
-  assert.equal(typeof result.kosdaq.isUp, 'boolean')
-  assert.equal(result.watchlist.length, config.KR_WATCHLIST.length)
-  assert.equal(result.watchlist[0].code, config.KR_WATCHLIST[0].code)
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/collect/kr.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/collect/kr.js
@@ -312,15 +233,15 @@ export async function collectKr(watchlist, { demo = false } = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [ ] **Step 2: 동작 확인 (실제 네트워크로 한 번 실행 — 이 모듈은 실거래 데이터 파싱이 핵심이라 demo만으론 부족)**
 
-Run: `node --test src/collect/kr.test.js`
-Expected: PASS
+Run: `node -e "import('./src/collect/kr.js').then(m => import('./src/config.js').then(c => m.collectKr(c.config.KR_WATCHLIST))).then(console.log)"`
+Expected: 실제 코스피/코스닥/종목 시세가 담긴 객체 출력 (장 마감 후엔 최근 종가 기준).
 
-- [ ] **Step 5: 커밋**
+- [ ] **Step 3: 커밋**
 
 ```bash
-git add src/collect/kr.js src/collect/kr.test.js
+git add src/collect/kr.js
 git commit -m "feat: 한국 시황 수집(collect/kr) 추가"
 ```
 
@@ -330,33 +251,12 @@ git commit -m "feat: 한국 시황 수집(collect/kr) 추가"
 
 **Files:**
 - Create: `src/collect/news.js`
-- Test: `src/collect/news.test.js`
 
 **Interfaces:**
 - Consumes: `rss-parser`의 `Parser#parseURL(url)`.
 - Produces: `collectNews({demo, limit}) => Promise<{title, link, pubDate}[]>`. Task 6, Task 11에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성**
-
-```js
-// src/collect/news.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { collectNews } from './news.js'
-
-test('demo 모드는 limit개의 헤드라인을 반환', async () => {
-  const result = await collectNews({ demo: true, limit: 3 })
-  assert.equal(result.length, 3)
-  assert.equal(typeof result[0].title, 'string')
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/collect/news.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/collect/news.js
@@ -384,15 +284,10 @@ export async function collectNews({ demo = false, limit = 5 } = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/collect/news.test.js`
-Expected: PASS
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/collect/news.js src/collect/news.test.js
+git add src/collect/news.js
 git commit -m "feat: 뉴스 헤드라인 수집(collect/news) 추가"
 ```
 
@@ -402,61 +297,12 @@ git commit -m "feat: 뉴스 헤드라인 수집(collect/news) 추가"
 
 **Files:**
 - Create: `src/collect/index.js`
-- Test: `src/collect/index.test.js`
 
 **Interfaces:**
-- Consumes: `collectKr`(Task 4), `collectUs`(Task 3), `collectNews`(Task 5) — 기본값이지만 `opts.collectors`로 교체 가능(테스트용 의존성 주입).
+- Consumes: `collectKr`(Task 4), `collectUs`(Task 3), `collectNews`(Task 5).
 - Produces: `collectDaily(config, opts) => Promise<{date: Date, kr, us, headlines, warnings: string[]}>`. `kr`/`us`는 실패 시 `null` + `warnings`에 사유 추가. 둘 다 실패하면 throw. Task 11에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성 (가짜 collector를 주입해 네트워크 없이 실패 경로까지 결정적으로 검증)**
-
-```js
-// src/collect/index.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { collectDaily } from './index.js'
-import { config } from '../config.js'
-
-test('demo 모드는 kr/us/headlines를 모두 채우고 warnings는 비어있음', async () => {
-  const result = await collectDaily(config, { demo: true })
-  assert.ok(result.kr)
-  assert.ok(result.us)
-  assert.equal(result.headlines.length > 0, true)
-  assert.deepEqual(result.warnings, [])
-})
-
-test('kr/us 둘 다 실패하면 throw하고 사유가 warnings에 담긴다', async () => {
-  const failingCollectors = {
-    collectKr: async () => { throw new Error('kr down') },
-    collectUs: async () => { throw new Error('us down') },
-    collectNews: async () => [],
-  }
-  await assert.rejects(
-    () => collectDaily(config, { collectors: failingCollectors }),
-    /국내\/미국 데이터 모두 수집 실패/,
-  )
-})
-
-test('kr만 실패하면 us/headlines로 계속 진행하고 warnings에 사유가 남는다', async () => {
-  const partialCollectors = {
-    collectKr: async () => { throw new Error('kr down') },
-    collectUs: async (opts) => (await import('./us.js')).demoUs(),
-    collectNews: async (opts) => (await import('./news.js')).demoNews(3),
-  }
-  const result = await collectDaily(config, { collectors: partialCollectors })
-  assert.equal(result.kr, null)
-  assert.ok(result.us)
-  assert.equal(result.warnings.length, 1)
-  assert.match(result.warnings[0], /한국 시황 수집 실패/)
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/collect/index.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/collect/index.js
@@ -471,17 +317,11 @@ function pick(result, warnings, message) {
 }
 
 export async function collectDaily(config, opts = {}) {
-  const collectors = {
-    collectKr,
-    collectUs,
-    collectNews,
-    ...opts.collectors,
-  }
   const warnings = []
   const [krResult, usResult, newsResult] = await Promise.allSettled([
-    collectors.collectKr(config.KR_WATCHLIST, opts),
-    collectors.collectUs(opts),
-    collectors.collectNews(opts),
+    collectKr(config.KR_WATCHLIST, opts),
+    collectUs(opts),
+    collectNews(opts),
   ])
 
   const kr = pick(krResult, warnings, '한국 시황 수집 실패')
@@ -494,15 +334,10 @@ export async function collectDaily(config, opts = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/collect/index.test.js`
-Expected: PASS (3 tests), 네트워크 없이 결정적으로 통과.
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/collect/index.js src/collect/index.test.js
+git add src/collect/index.js
 git commit -m "feat: collect 조합 + 부분 실패 처리 추가"
 ```
 
@@ -512,60 +347,12 @@ git commit -m "feat: collect 조합 + 부분 실패 처리 추가"
 
 **Files:**
 - Create: `src/summarize.js`
-- Test: `src/summarize.test.js`
 
 **Interfaces:**
 - Consumes: `@anthropic-ai/sdk`의 `Anthropic#messages.create()` (tool-use 강제 호출로 구조화 출력).
-- Produces: `summarize(dailyData, {client}) => Promise<{coverSubtitle, summaryLead, summaryRest, picks: {code, note}[], closingLine1, closingLine2, tomorrowPoint}>`. `client`를 주입하면 실제 API 호출 없이 테스트 가능. Task 11에서 사용.
+- Produces: `summarize(dailyData, {client}) => Promise<{coverSubtitle, summaryLead, summaryRest, picks: {code, note}[], closingLine1, closingLine2, tomorrowPoint}>`. `client`를 주입하면 실제 API 호출을 건너뛸 수 있음(향후 필요시). Task 11에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성 (가짜 client, 네트워크 없음)**
-
-```js
-// src/summarize.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { summarize } from './summarize.js'
-
-test('client가 반환한 tool_use.input을 그대로 반환', async () => {
-  const fakeInput = {
-    coverSubtitle: '테스트 요약',
-    summaryLead: '반도체 강세',
-    summaryRest: '코스피를 끌어올렸어요.',
-    picks: [
-      { code: '005930', note: '외국인 매수' },
-      { code: '000660', note: '신고가' },
-      { code: '247540', note: '차익 실현' },
-    ],
-    closingLine1: '반도체가 끌고,',
-    closingLine2: '코스피는 회복!',
-    tomorrowPoint: 'PCE 발표 예정',
-  }
-  const fakeClient = {
-    messages: {
-      create: async () => ({
-        content: [{ type: 'tool_use', name: 'emit_card_copy', input: fakeInput }],
-      }),
-    },
-  }
-  const result = await summarize({ date: new Date(), kr: null, us: null, headlines: [] }, { client: fakeClient })
-  assert.deepEqual(result, fakeInput)
-})
-
-test('tool_use 블록이 없으면 에러', async () => {
-  const fakeClient = { messages: { create: async () => ({ content: [{ type: 'text', text: 'oops' }] }) } }
-  await assert.rejects(
-    () => summarize({ date: new Date(), kr: null, us: null, headlines: [] }, { client: fakeClient }),
-    /구조화 출력/,
-  )
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/summarize.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/summarize.js
@@ -623,15 +410,10 @@ export async function summarize(dailyData, { client } = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/summarize.test.js`
-Expected: PASS (2 tests)
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/summarize.js src/summarize.test.js
+git add src/summarize.js
 git commit -m "feat: summarize.js — Anthropic 구조화 출력 추가"
 ```
 
@@ -641,58 +423,12 @@ git commit -m "feat: summarize.js — Anthropic 구조화 출력 추가"
 
 **Files:**
 - Modify: `templates/neon.html`
-- Test: `templates/neon.test.js`
 
 **Interfaces:**
 - Produces: `data-slot="..."` 속성이 달린 DOM 요소들, `data-pick="0|1|2"` 래퍼, `.up-text`/`.down-text`/`.pick-up`/`.pick-down`/`.badge-up`/`.badge-down` CSS 클래스. Task 9(render.js)가 이 슬롯 이름들을 그대로 사용.
-- 필요한 전체 슬롯 목록: `date`, `coverSubtitle`, `kospi.value`, `kospi.pct`, `kospi.changeAbs`, `kosdaq.value`, `kosdaq.pct`, `nasdaq.value`, `nasdaq.pct`, `summary.lead`, `summary.rest`, `picks.0.name`/`picks.0.pct`/`picks.0.note` (1,2도 동일), `closingHeadline.line1`, `closingHeadline.line2`, `tomorrowPoint`.
+- 필요한 전체 슬롯: `date`, `coverSubtitle`, `kospi.value`, `kospi.pct`, `kospi.changeAbs`, `kosdaq.value`, `kosdaq.pct`, `nasdaq.value`, `nasdaq.pct`, `summary.lead`, `summary.rest`, `picks.0/1/2.name`/`.pct`/`.note`, `closingHeadline.line1`, `closingHeadline.line2`, `tomorrowPoint`.
 
-- [ ] **Step 1: 실패하는 테스트 작성 (슬롯 존재 여부만 정적 검사, 브라우저 불필요)**
-
-```js
-// templates/neon.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-
-const html = readFileSync(fileURLToPath(new URL('./neon.html', import.meta.url)), 'utf8')
-
-const REQUIRED_SLOTS = [
-  'date', 'coverSubtitle',
-  'kospi.value', 'kospi.pct', 'kospi.changeAbs',
-  'kosdaq.value', 'kosdaq.pct',
-  'nasdaq.value', 'nasdaq.pct',
-  'summary.lead', 'summary.rest',
-  'picks.0.name', 'picks.0.pct', 'picks.0.note',
-  'picks.1.name', 'picks.1.pct', 'picks.1.note',
-  'picks.2.name', 'picks.2.pct', 'picks.2.note',
-  'closingHeadline.line1', 'closingHeadline.line2',
-  'tomorrowPoint',
-]
-
-test('neon.html에 필요한 data-slot이 모두 존재', () => {
-  for (const slot of REQUIRED_SLOTS) {
-    assert.ok(html.includes(`data-slot="${slot}"`), `missing slot: ${slot}`)
-  }
-})
-
-test('neon.html에 pick 래퍼(data-pick)와 방향 클래스가 존재', () => {
-  for (const i of [0, 1, 2]) assert.ok(html.includes(`data-pick="${i}"`))
-  for (const cls of ['up-text', 'down-text', 'pick-up', 'pick-down', 'badge-up', 'badge-down']) {
-    assert.ok(html.includes(cls), `missing class: ${cls}`)
-  }
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test templates/neon.test.js`
-Expected: FAIL — 슬롯들이 아직 없음
-
-- [ ] **Step 3: `templates/neon.html` 편집 — CSS 클래스 추가**
-
-Edit (style 블록 끝, `</style>` 직전):
+- [ ] **Step 1: CSS 클래스 추가 (`</style>` 직전)**
 
 ```
 old:
@@ -710,7 +446,7 @@ new:
 </style>
 ```
 
-- [ ] **Step 4: 커버 슬라이드 — 날짜/부제 슬롯**
+- [ ] **Step 2: 커버 슬라이드 — 날짜/부제 슬롯**
 
 ```
 old:
@@ -722,7 +458,7 @@ new:
       <div data-slot="coverSubtitle" style="font-size:24px;color:#d8d2ee;margin-top:26px;line-height:1.5;">복잡한 증시, 오늘 핵심만 쏙쏙 골라 담았어요.</div>
 ```
 
-- [ ] **Step 5: 지수 슬라이드 — 코스피 값/등락**
+- [ ] **Step 3: 지수 슬라이드 — 코스피 값/등락**
 
 ```
 old:
@@ -746,7 +482,7 @@ new:
         </div>
 ```
 
-- [ ] **Step 6: 지수 슬라이드 — 코스닥/나스닥 박스 (원/달러 → 나스닥으로 대체)**
+- [ ] **Step 4: 지수 슬라이드 — 코스닥/나스닥 박스 (원/달러 → 나스닥으로 대체)**
 
 ```
 old:
@@ -774,7 +510,7 @@ new:
       </div>
 ```
 
-- [ ] **Step 7: 지수 슬라이드 — 한줄 요약 lead/rest**
+- [ ] **Step 5: 지수 슬라이드 — 한줄 요약 lead/rest**
 
 ```
 old:
@@ -784,7 +520,7 @@ new:
     <div style="margin-top:auto;background:rgba(167,139,250,.12);border-radius:22px;padding:24px;font-size:21px;color:#e3def5;line-height:1.55;">한마디로, <b data-slot="summary.lead" style="color:#c4b5fd;">반도체가 오늘의 주인공!</b> <span data-slot="summary.rest">코스피를 위로 끌어올렸어요.</span></div>
 ```
 
-- [ ] **Step 8: 종목픽 슬라이드 — 3개 카드에 슬롯/래퍼 부여 + 안내문구 수정**
+- [ ] **Step 6: 종목픽 슬라이드 — 3개 카드에 슬롯/래퍼 부여 + 안내문구 수정**
 
 ```
 old:
@@ -850,7 +586,7 @@ new:
     <div style="margin-top:auto;font-size:16px;color:#6b6388;">* 투자 참고용 정보이며, 투자 권유가 아니에요</div>
 ```
 
-- [ ] **Step 9: 마무리 슬라이드 — 헤드라인/내일 관전포인트 슬롯**
+- [ ] **Step 7: 마무리 슬라이드 — 헤드라인/내일 관전포인트 슬롯**
 
 ```
 old:
@@ -868,15 +604,10 @@ new:
     </div>
 ```
 
-- [ ] **Step 10: 테스트 통과 확인**
-
-Run: `node --test templates/neon.test.js`
-Expected: PASS (2 tests)
-
-- [ ] **Step 11: 커밋**
+- [ ] **Step 8: 커밋**
 
 ```bash
-git add templates/neon.html templates/neon.test.js
+git add templates/neon.html
 git commit -m "feat: neon.html에 데이터 슬롯/방향 클래스 추가"
 ```
 
@@ -886,7 +617,6 @@ git commit -m "feat: neon.html에 데이터 슬롯/방향 클래스 추가"
 
 **Files:**
 - Create: `src/render/render.js`
-- Test: `src/render/render.test.js`
 
 **Interfaces:**
 - Consumes: `playwright`의 `chromium.launch()`, Task 8에서 준비한 `templates/neon.html`의 슬롯들.
@@ -903,52 +633,7 @@ git commit -m "feat: neon.html에 데이터 슬롯/방향 클래스 추가"
 }
 ```
 
-- [ ] **Step 1: 실패하는 테스트 작성 (실제 Playwright로 스모크 렌더)**
-
-```js
-// src/render/render.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { mkdtempSync, statSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-import { renderCards } from './render.js'
-
-const SAMPLE_CARD_COPY = {
-  date: '2026.07.08 · 수요일',
-  coverSubtitle: '오늘도 핵심만 쏙쏙 담았어요.',
-  kospi: { value: '7,246.79', pct: 5.35, isUp: false },
-  kosdaq: { value: '785.00', pct: 5.56, isUp: false },
-  nasdaq: { value: '17,890.55', pct: 0.34, isUp: true },
-  summaryLead: '변동성 장세!',
-  summaryRest: '미국발 훈풍이 국내 증시를 흔들었어요.',
-  picks: [
-    { name: '삼성전자', pct: 6.25, isUp: false, note: '대형주 차익 실현 매물' },
-    { name: 'SK하이닉스', pct: 3.1, isUp: true, note: '반도체 수요 기대감' },
-    { name: '에코프로비엠', pct: 2.0, isUp: false, note: '2차전지 조정' },
-  ],
-  closingLine1: '변동성 컸던 하루,',
-  closingLine2: '코스피 5%대 급락 마감',
-  tomorrowPoint: '미국 PCE 물가지수 발표를 주목하세요.',
-}
-
-test('renderCards는 PNG 4장을 생성한다', async () => {
-  const outDir = mkdtempSync(path.join(tmpdir(), 'card-news-'))
-  const paths = await renderCards(SAMPLE_CARD_COPY, { style: 'neon', outDir })
-  assert.equal(paths.length, 4)
-  for (const p of paths) {
-    const stat = statSync(p)
-    assert.ok(stat.size > 1000, `${p} is too small: ${stat.size} bytes`)
-  }
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/render/render.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/render/render.js
@@ -1039,17 +724,14 @@ export async function renderCards(cardCopy, { style = 'neon', outDir } = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/render/render.test.js`
-Expected: PASS (몇 초 소요 — chromium 기동 포함)
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/render/render.js src/render/render.test.js
+git add src/render/render.js
 git commit -m "feat: render.js — Playwright 카드 4장 렌더 추가"
 ```
+
+(실제 렌더 확인은 Task 13의 전체 데모 실행에서 한 번에 검증한다.)
 
 ---
 
@@ -1057,55 +739,12 @@ git commit -m "feat: render.js — Playwright 카드 4장 렌더 추가"
 
 **Files:**
 - Create: `src/notify.js`
-- Test: `src/notify.test.js`
 
 **Interfaces:**
 - Consumes: `nodemailer`의 `createTransport().sendMail()`.
-- Produces: `buildMailOptions(cardCopy, pngPaths, {warnings, to}) => mailOptions` (순수 함수, 테스트용), `sendCardNewsMail(cardCopy, pngPaths, opts) => Promise<mailOptions>` — `opts.demo`면 실제 발송 없이 `mailOptions`만 반환. Task 11에서 사용.
+- Produces: `buildMailOptions(cardCopy, pngPaths, {warnings, to}) => mailOptions` (순수 함수), `sendCardNewsMail(cardCopy, pngPaths, opts) => Promise<mailOptions>` — `opts.demo`면 실제 발송 없이 `mailOptions`만 반환. Task 11에서 사용.
 
-- [ ] **Step 1: 실패하는 테스트 작성 (네트워크 없이 buildMailOptions만 검증)**
-
-```js
-// src/notify.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { buildMailOptions } from './notify.js'
-
-const SAMPLE_CARD_COPY = {
-  date: '2026.07.08 · 수요일',
-  coverSubtitle: '오늘도 핵심만 담았어요.',
-  summaryLead: '반도체 강세', summaryRest: '코스피를 끌어올렸어요.',
-  picks: [
-    { name: '삼성전자', pct: 2.1, isUp: true, note: 'HBM 기대감' },
-    { name: 'SK하이닉스', pct: 3.4, isUp: true, note: '신고가' },
-    { name: '에코프로비엠', pct: 1.8, isUp: false, note: '차익 실현' },
-  ],
-  closingLine1: '반도체가 끌고,', closingLine2: '코스피는 회복!',
-  tomorrowPoint: 'PCE 발표 예정',
-}
-
-test('buildMailOptions는 수신자/제목/첨부 4장을 포함한다', () => {
-  const options = buildMailOptions(SAMPLE_CARD_COPY, ['/tmp/1.png', '/tmp/2.png', '/tmp/3.png', '/tmp/4.png'], {
-    to: 'hec8897@naver.com',
-  })
-  assert.equal(options.to, 'hec8897@naver.com')
-  assert.match(options.subject, /2026\.07\.08/)
-  assert.equal(options.attachments.length, 4)
-  assert.match(options.text, /삼성전자/)
-})
-
-test('warnings가 있으면 본문 상단에 경고가 포함된다', () => {
-  const options = buildMailOptions(SAMPLE_CARD_COPY, [], { warnings: ['미국 시황 수집 실패: timeout'] })
-  assert.match(options.text, /미국 시황 수집 실패/)
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/notify.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/notify.js
@@ -1145,15 +784,10 @@ export async function sendCardNewsMail(cardCopy, pngPaths, opts = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/notify.test.js`
-Expected: PASS (2 tests)
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/notify.js src/notify.test.js
+git add src/notify.js
 git commit -m "feat: notify.js — 네이버 메일 발송 추가"
 ```
 
@@ -1163,60 +797,13 @@ git commit -m "feat: notify.js — 네이버 메일 발송 추가"
 
 **Files:**
 - Create: `src/pipeline.js`
-- Test: `src/pipeline.test.js`
 
 **Interfaces:**
 - Consumes: `collectDaily`(Task 6), `summarize`(Task 7), `renderCards`(Task 9), `sendCardNewsMail`(Task 10).
 - Produces: `runPipeline(config, opts) => Promise<{cardCopy, pngPaths, mailOptions, warnings}>`. Task 12(bin/publish.js)에서 사용.
-- `opts`: `{demo: boolean, style?: string, client?: AnthropicClient}` — `client`는 테스트에서 `summarize`에 그대로 전달됨.
+- `opts`: `{demo: boolean, style?: string}`.
 
-- [ ] **Step 1: 실패하는 테스트 작성 (전체 파이프라인, demo + 가짜 Anthropic client)**
-
-```js
-// src/pipeline.test.js
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { rmSync } from 'node:fs'
-import { runPipeline } from './pipeline.js'
-import { config } from './config.js'
-
-const fakeClient = {
-  messages: {
-    create: async () => ({
-      content: [
-        {
-          type: 'tool_use',
-          name: 'emit_card_copy',
-          input: {
-            coverSubtitle: '테스트 커버',
-            summaryLead: '변동성 장세',
-            summaryRest: '증시가 크게 흔들렸어요.',
-            picks: config.KR_WATCHLIST.slice(0, 3).map((w) => ({ code: w.code, note: `${w.name} 코멘트` })),
-            closingLine1: '오늘 정리,',
-            closingLine2: '변동성 컸던 하루',
-            tomorrowPoint: 'PCE 발표 주목',
-          },
-        },
-      ],
-    }),
-  },
-}
-
-test('runPipeline은 demo 모드로 끝까지 실행되고 메일은 발송하지 않는다', async () => {
-  const result = await runPipeline(config, { demo: true, client: fakeClient })
-  assert.equal(result.pngPaths.length, 4)
-  assert.equal(result.cardCopy.picks.length, 3)
-  assert.equal(result.mailOptions.attachments.length, 4)
-  rmSync('out', { recursive: true, force: true })
-})
-```
-
-- [ ] **Step 2: 테스트 실패 확인**
-
-Run: `node --test src/pipeline.test.js`
-Expected: FAIL — 모듈 없음
-
-- [ ] **Step 3: 구현**
+- [ ] **Step 1: 구현**
 
 ```js
 // src/pipeline.js
@@ -1279,15 +866,10 @@ export async function runPipeline(config, opts = {}) {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
-
-Run: `node --test src/pipeline.test.js`
-Expected: PASS
-
-- [ ] **Step 5: 커밋**
+- [ ] **Step 2: 커밋**
 
 ```bash
-git add src/pipeline.js src/pipeline.test.js
+git add src/pipeline.js
 git commit -m "feat: pipeline.js — collect→summarize→render→notify 오케스트레이션"
 ```
 
@@ -1302,7 +884,7 @@ git commit -m "feat: pipeline.js — collect→summarize→render→notify 오�
 - Consumes: `runPipeline`(Task 11), `config`(Task 2).
 - Produces: `node bin/publish.js [--style neon] [--demo]` 커맨드.
 
-- [ ] **Step 1: 구현 (스크립트라 별도 유닛 테스트 없음 — Task 13에서 `--demo` 실행으로 검증)**
+- [ ] **Step 1: 구현**
 
 ```js
 #!/usr/bin/env node
@@ -1340,13 +922,10 @@ git commit -m "feat: bin/publish.js CLI 진입점 추가"
 
 ---
 
-### Task 13: README 업데이트 + 전체 데모 실행 검증
+### Task 13: README 업데이트 + 전체 데모 실행 검증 (이 플랜의 유일한 실행 검증 지점)
 
 **Files:**
 - Modify: `README.md`
-
-**Interfaces:**
-- 없음 (문서 + 수동 검증 태스크).
 
 - [ ] **Step 1: README에 실행법/환경변수 섹션 갱신**
 
@@ -1355,9 +934,9 @@ git commit -m "feat: bin/publish.js CLI 진입점 추가"
 - [ ] **Step 2: 전체 데모 실행으로 파이프라인 검증**
 
 Run: `cp .env.example .env && node bin/publish.js --demo`
-Expected: `완료: PNG 4장 생성, 메일 (demo, 미발송)` 출력, `out/<오늘날짜>/01-cover.png` ~ `04-closing.png` 생성 확인.
+Expected: `완료: PNG 4장 생성, 메일 (demo, 미발송)` 출력, `out/<오늘날짜>/01-cover.png` ~ `04-closing.png` 생성 확인. 생성된 4장을 직접 열어 슬롯이 올바르게 채워졌는지 육안 확인 (이 플랜에서 유일하게 필요한 수동 확인).
 
-`--demo`는 네트워크 수집을 건너뛰지 않는다는 점 주의 — `collectDaily`는 `opts.demo`를 그대로 `collectKr`/`collectUs`/`collectNews`에 전달하므로 데모 모드에서는 수집도 고정 샘플로 대체된다. 요약(summarize)만은 실제 `ANTHROPIC_API_KEY`가 있으면 실제 API를 호출한다 — 완전 오프라인 검증이 필요하면 `client` 옵션을 코드에서 직접 주입해야 하며, CLI에는 이 옵션이 없다(의도적 — 카피 품질까지 보고 싶을 때가 대부분이므로).
+`--demo`는 `collectDaily`를 통해 `collectKr`/`collectUs`/`collectNews`에도 그대로 전달되므로 수집까지 고정 샘플로 대체된다. 요약(summarize)만은 `ANTHROPIC_API_KEY`가 있으면 실제 API를 호출한다.
 
 - [ ] **Step 3: 실제 발송 1회 확인 (선택, 자격증명 준비된 경우)**
 
