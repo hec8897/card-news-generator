@@ -23,7 +23,7 @@ collect ──DailyData──▶ summarize ──CardCopy──▶ render ──
 | 단계 | 역할 | 기술 |
 |---|---|---|
 | collect | 시황·종목·뉴스 수집 | yahoo-finance2(US), 네이버 금융 JSON(KR), RSS |
-| summarize | DailyData → CardCopy | Anthropic SDK, `claude-opus-4-8`, 구조화 출력 |
+| summarize | DailyData → CardCopy | OpenAI SDK, `gpt-5.5`, 구조화 출력(json_schema) |
 | render | CardCopy → PNG 4장 | Playwright(chromium) headless |
 | notify | PNG + 카드 문구 → 메일 발송 | Nodemailer (네이버 SMTP) |
 | publish | PNG → IG 캐러셀 | Instagram Graph API (Phase 2) |
@@ -44,14 +44,14 @@ node bin/publish.js --demo   # 수집/발송을 고정 샘플·미발송으로 �
 ```
 
 - `--style <neon>` — 카드 디자인 시안 선택 (기본값은 `STYLE` 환경변수, 그마저 없으면 `neon`). 현재는 `neon`만 지원하며, 다른 값을 넘기면 명확한 에러로 실패한다.
-- `--demo` — `collectDaily`가 KR/US/뉴스 수집을 고정 샘플 데이터로 대체하고, 메일은 실제 발송 없이 발송될 내용만 반환한다. 단, `summarize` 단계는 `--demo`의 영향을 받지 않고 항상 `ANTHROPIC_API_KEY`로 실제 Anthropic API를 호출한다 (의도된 제약; CLI에 요약을 가짜로 대체하는 옵션은 없음).
+- `--demo` — `collectDaily`가 KR/US/뉴스 수집을 고정 샘플 데이터로 대체하고, 메일은 실제 발송 없이 발송될 내용만 반환한다. 단, `summarize` 단계는 `--demo`의 영향을 받지 않고 항상 `OPENAI_API_KEY`로 실제 OpenAI API를 호출한다 (의도된 제약; CLI에 요약을 가짜로 대체하는 옵션은 없음).
 
 ## 환경변수
 
 `.env.example`을 복사해 `.env`를 만들고 값을 채운다 (`.env`는 gitignore됨). `bin/publish.js`가 실행 시 `.env`를 자동 로드한다.
 
 ```
-ANTHROPIC_API_KEY      # 필수 (요약 단계, --demo 여부와 무관하게 항상 필요)
+OPENAI_API_KEY         # 필수 (요약 단계, --demo 여부와 무관하게 항상 필요)
 NAVER_EMAIL            # 필수 (발송 계정, SMTP 인증 아이디이자 메일의 발신 주소)
 NAVER_APP_PASSWORD     # 필수 (네이버 앱 비밀번호, 로그인 비밀번호 아님)
 MAIL_TO=hec8897@naver.com  # 수신 주소 (미설정 시 NAVER_EMAIL로 발송)
