@@ -65,6 +65,9 @@ function applyCardCopy(cardCopy) {
 }
 
 export async function renderCards(cardCopy, { style = 'neon', outDir } = {}) {
+  if (style !== 'neon') {
+    throw new Error(`render: 지원하지 않는 스타일 '${style}' (현재 neon만 지원)`)
+  }
   const templatePath = path.join(__dirname, '..', '..', 'templates', `${style}.html`)
   const browser = await chromium.launch()
   try {
