@@ -8,11 +8,16 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.61.1-jammy # 크로미움이 이미 설치되어 있어 매번 설치할 필요 없음
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - run: npm install
+
+      - run: npx playwright install --with-deps chromium
 
       - run: node bin/publish.js
         env:
