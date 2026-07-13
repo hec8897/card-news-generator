@@ -12,8 +12,9 @@ const SCALE = TARGET_CARD.width / NATIVE_CARD.width // 1.6875 — 640×800 카�
 const SLIDES = [
   { label: 'B1 Cover', file: '01-cover.png' },
   { label: 'B2 Indices', file: '02-indices.png' },
-  { label: 'B3 Stocks', file: '03-stocks.png' },
-  { label: 'B4 Closing', file: '04-closing.png' },
+  { label: 'B3 Summary', file: '03-summary.png' },
+  { label: 'B4 Stocks', file: '04-stocks.png' },
+  { label: 'B5 Closing', file: '05-closing.png' },
 ]
 
 function applyCardCopy(cardCopy) {
@@ -71,7 +72,7 @@ export async function renderCards(cardCopy, { style = 'neon', outDir } = {}) {
   const templatePath = path.join(__dirname, '..', '..', 'templates', `${style}.html`)
   const browser = await chromium.launch()
   try {
-    const page = await browser.newPage({ deviceScaleFactor: SCALE, viewport: { width: 2800, height: 900 } })
+    const page = await browser.newPage({ deviceScaleFactor: SCALE, viewport: { width: 3500, height: 900 } })
     await page.goto(`file://${templatePath}`)
     await page.evaluate(applyCardCopy, cardCopy)
     await page.evaluate(() => document.fonts.ready)

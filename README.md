@@ -4,7 +4,7 @@
 **데이터 수집 → AI 요약 → PNG 캐러셀 렌더 → 인스타그램 발행**까지 도는 파이프라인.
 
 - 계정 콘셉트: `@마켓노트` (주식 시황/종목 뉴스 카드)
-- 캐러셀: 커버 → 시황요약 → 종목픽 → 마무리 (4장, 1080×1350, 4:5)
+- 캐러셀: 커버 → 지수 → 한 줄 요약 → 종목픽 → 마무리 (5장, 1080×1350, 4:5)
 - 시장: 한국(코스피/코스닥) + 미국(S&P500/나스닥)
 
 > 상세 설계는 [docs/superpowers/specs/2026-06-28-stock-news-card-generator-design.md](docs/superpowers/specs/2026-06-28-stock-news-card-generator-design.md) 참고.
@@ -24,13 +24,13 @@ collect ──DailyData──▶ summarize ──CardCopy──▶ render ──
 |---|---|---|
 | collect | 시황·종목·뉴스 수집 | FRED CSV(US), 네이버 금융 JSON(KR), RSS |
 | summarize | DailyData → CardCopy | OpenAI SDK, `gpt-5.5`, 구조화 출력(json_schema) |
-| render | CardCopy → PNG 4장 | Playwright(chromium) headless |
+| render | CardCopy → PNG 5장 | Playwright(chromium) headless |
 | notify | PNG + 카드 문구 → 메일 발송 | Nodemailer (네이버 SMTP) |
 | publish | PNG → IG 캐러셀 | Instagram Graph API (Phase 2) |
 
 ## 단계 구성
 
-- **Phase 1** — 데이터 수집 → AI 요약 → PNG 4장 생성 → 매일 아침 메일로 발송(첨부: PNG 4장, 본문: 카드 문구 텍스트). 인스타는 수동 업로드.
+- **Phase 1** — 데이터 수집 → AI 요약 → PNG 5장 생성 → 매일 아침 메일로 발송(첨부: PNG 5장, 본문: 카드 문구 텍스트). 인스타는 수동 업로드.
 - **Phase 2** — IG 비즈니스 계정 + 토큰 준비 후 자동 발행 연결.
 
 ## 사용
