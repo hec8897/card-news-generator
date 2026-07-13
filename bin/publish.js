@@ -3,7 +3,11 @@
 import { runPipeline } from '../src/pipeline.js'
 import { config } from '../src/config.js'
 
-process.loadEnvFile?.('.env')
+try {
+  process.loadEnvFile?.('.env')
+} catch {
+  // .env 없음 (예: GitHub Actions처럼 환경변수를 직접 주입하는 환경) — 무시
+}
 
 function argFlag(args, name) {
   const i = args.indexOf(name)
