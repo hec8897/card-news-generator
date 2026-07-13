@@ -1,13 +1,26 @@
-import YahooFinance from 'yahoo-finance2'
+const SERIES = { sp500: 'SP500', nasdaq: 'NASDAQCOM', dow: 'DJIA' }
 
-const yahooFinance = new YahooFinance()
+async function fetchFredSeries(id) {
+  const res = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}`)
+  if (!res.ok) throw new Error(`FRED ${id} 조회 실패: ${res.status}`)
+  const text = await res.text()
+  const rows = text
+    .trim()
+    .split('\n')
+    .slice(1) // 헤더(observation_date,<id>) 제외
+    .map((line) => line.split(','))
+    .filter(([, value]) => value) // 휴장일은 값이 비어있음 — 제외
 
-const TICKERS = { sp500: '^GSPC', nasdaq: '^IXIC', dow: '^DJI' }
+  if (rows.length < 2) throw new Error(`FRED ${id}: 유효한 데이터 부족`)
+  const [, latest] = rows[rows.length - 1]
+  const [, prev] = rows[rows.length - 2]
+  return { latest: parseFloat(latest), prev: parseFloat(prev) }
+}
 
-function toQuote(q) {
-  const pct = q.regularMarketChangePercent
+function toQuote({ latest, prev }) {
+  const pct = ((latest - prev) / prev) * 100
   return {
-    value: q.regularMarketPrice.toLocaleString('en-US'),
+    value: latest.toLocaleString('en-US'),
     pct: Math.abs(pct).toFixed(2),
     isUp: pct >= 0,
   }
@@ -23,12 +36,14 @@ export function demoUs() {
 
 export async function collectUs({ demo = false } = {}) {
   if (demo) return demoUs()
-  const symbols = Object.values(TICKERS)
-  const quotes = await yahooFinance.quote(symbols)
-  const bySymbol = Object.fromEntries(quotes.map((q) => [q.symbol, q]))
+  const [sp500, nasdaq, dow] = await Promise.all([
+    fetchFredSeries(SERIES.sp500),
+    fetchFredSeries(SERIES.nasdaq),
+    fetchFredSeries(SERIES.dow),
+  ])
   return {
-    sp500: toQuote(bySymbol['^GSPC']),
-    nasdaq: toQuote(bySymbol['^IXIC']),
-    dow: toQuote(bySymbol['^DJI']),
+    sp500: toQuote(sp500),
+    nasdaq: toQuote(nasdaq),
+    dow: toQuote(dow),
   }
 }

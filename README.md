@@ -22,7 +22,7 @@ collect ──DailyData──▶ summarize ──CardCopy──▶ render ──
 
 | 단계 | 역할 | 기술 |
 |---|---|---|
-| collect | 시황·종목·뉴스 수집 | yahoo-finance2(US), 네이버 금융 JSON(KR), RSS |
+| collect | 시황·종목·뉴스 수집 | FRED CSV(US), 네이버 금융 JSON(KR), RSS |
 | summarize | DailyData → CardCopy | OpenAI SDK, `gpt-5.5`, 구조화 출력(json_schema) |
 | render | CardCopy → PNG 4장 | Playwright(chromium) headless |
 | notify | PNG + 카드 문구 → 메일 발송 | Nodemailer (네이버 SMTP) |
