@@ -22,8 +22,6 @@ jobs:
       - run: node bin/publish.js
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TOSS_CLIENT_ID: ${{ secrets.TOSS_CLIENT_ID }}
-          TOSS_CLIENT_SECRET: ${{ secrets.TOSS_CLIENT_SECRET }}
           NAVER_EMAIL: ${{ secrets.NAVER_EMAIL }}
           NAVER_APP_PASSWORD: ${{ secrets.NAVER_APP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
