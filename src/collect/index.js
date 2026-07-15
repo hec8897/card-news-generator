@@ -7,10 +7,10 @@ function pick(result, warnings, message) {
   return null
 }
 
-export async function collectDaily(config, opts = {}) {
+export async function collectDaily(opts = {}) {
   const warnings = []
   const [krResult, newsResult] = await Promise.allSettled([
-    collectKr(config.KR_WATCHLIST, opts),
+    collectKr(opts),
     collectNews(opts),
   ])
 
