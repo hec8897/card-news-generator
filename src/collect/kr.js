@@ -1,15 +1,49 @@
-const BASE = 'https://polling.finance.naver.com/api/realtime/domestic'
+const BASE = 'https://openapi.tossinvest.com'
 
-async function fetchNaver(type, codes) {
-  const res = await fetch(`${BASE}/${type}/${codes.join(',')}`)
-  if (!res.ok) throw new Error(`naver ${type} 조회 실패: ${res.status}`)
+async function getAccessToken() {
+  const res = await fetch(`${BASE}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: process.env.TOSS_CLIENT_ID,
+      client_secret: process.env.TOSS_CLIENT_SECRET,
+    }),
+  })
+  if (!res.ok) throw new Error(`토스증권 토큰 발급 실패: ${res.status}`)
   const json = await res.json()
-  return json.datas
+  return json.access_token
 }
 
-function toQuote(d) {
-  const pct = parseFloat(d.fluctuationsRatio)
-  return { code: d.itemCode, name: d.stockName, value: d.closePrice, pct: Math.abs(pct), isUp: pct >= 0 }
+async function fetchJson(path, token) {
+  const res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`토스증권 조회 실패 (${path}): ${res.status}`)
+  return res.json()
+}
+
+function quoteFromCandles(candles) {
+  const latest = parseFloat(candles[0].closePrice)
+  const prev = parseFloat(candles[1].closePrice)
+  const pct = ((latest - prev) / prev) * 100
+  return { latest, pct: Number(Math.abs(pct).toFixed(2)), isUp: pct >= 0 }
+}
+
+async function fetchIndex(symbol, name, token) {
+  const { result } = await fetchJson(`/api/v1/market-indicators/${symbol}/candles?interval=1d&count=2`, token)
+  const q = quoteFromCandles(result.candles)
+  return {
+    code: symbol,
+    name,
+    value: q.latest.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    pct: q.pct,
+    isUp: q.isUp,
+  }
+}
+
+async function fetchStock(code, name, token) {
+  const { result } = await fetchJson(`/api/v1/candles?symbol=${code}&interval=1d&count=2`, token)
+  const q = quoteFromCandles(result.candles)
+  return { code, name, value: q.latest.toLocaleString('en-US'), pct: q.pct, isUp: q.isUp }
 }
 
 export function demoKr(watchlist) {
@@ -22,11 +56,11 @@ export function demoKr(watchlist) {
 
 export async function collectKr(watchlist, { demo = false } = {}) {
   if (demo) return demoKr(watchlist)
-  const [indexData, stockData] = await Promise.all([
-    fetchNaver('index', ['KOSPI', 'KOSDAQ']),
-    fetchNaver('stock', watchlist.map((w) => w.code)),
+  const token = await getAccessToken()
+  const [kospi, kosdaq, ...stocks] = await Promise.all([
+    fetchIndex('KOSPI', '코스피', token),
+    fetchIndex('KOSDAQ', '코스닥', token),
+    ...watchlist.map((w) => fetchStock(w.code, w.name, token)),
   ])
-  const kospi = toQuote(indexData.find((d) => d.itemCode === 'KOSPI'))
-  const kosdaq = toQuote(indexData.find((d) => d.itemCode === 'KOSDAQ'))
-  return { kospi, kosdaq, watchlist: stockData.map(toQuote) }
+  return { kospi, kosdaq, watchlist: stocks }
 }

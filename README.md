@@ -5,7 +5,7 @@
 
 - 계정 콘셉트: `@마켓노트` (주식 시황/종목 뉴스 카드)
 - 캐러셀: 커버 → 지수 → 한 줄 요약 → 종목픽 → 마무리 (5장, 1080×1350, 4:5)
-- 시장: 한국(코스피/코스닥) + 미국(S&P500/나스닥)
+- 시장: 한국(코스피/코스닥 + 관심 종목) — 토스증권 Open API가 미국 지수를 지원하지 않아 미국 시황은 범위에서 제외
 
 > 상세 설계는 [docs/superpowers/specs/2026-06-28-stock-news-card-generator-design.md](docs/superpowers/specs/2026-06-28-stock-news-card-generator-design.md) 참고.
 
@@ -22,7 +22,7 @@ collect ──DailyData──▶ summarize ──CardCopy──▶ render ──
 
 | 단계 | 역할 | 기술 |
 |---|---|---|
-| collect | 시황·종목·뉴스 수집 | FRED CSV(US), 네이버 금융 JSON(KR), RSS |
+| collect | 시황·종목·뉴스 수집 | 토스증권 Open API(KR 지수+종목), RSS(뉴스) |
 | summarize | DailyData → CardCopy | OpenAI SDK, `gpt-5.5`, 구조화 출력(json_schema) |
 | render | CardCopy → PNG 5장 | Playwright(chromium) headless |
 | notify | PNG + 카드 문구 → 메일 발송 | Nodemailer (네이버 SMTP) |
@@ -44,7 +44,7 @@ node bin/publish.js --demo   # 수집/발송을 고정 샘플·미발송으로 �
 ```
 
 - `--style <neon>` — 카드 디자인 시안 선택 (기본값은 `STYLE` 환경변수, 그마저 없으면 `neon`). 현재는 `neon`만 지원하며, 다른 값을 넘기면 명확한 에러로 실패한다.
-- `--demo` — `collectDaily`가 KR/US/뉴스 수집을 고정 샘플 데이터로 대체하고, 메일은 실제 발송 없이 발송될 내용만 반환한다. 단, `summarize` 단계는 `--demo`의 영향을 받지 않고 항상 `OPENAI_API_KEY`로 실제 OpenAI API를 호출한다 (의도된 제약; CLI에 요약을 가짜로 대체하는 옵션은 없음).
+- `--demo` — `collectDaily`가 KR 시황·뉴스 수집을 고정 샘플 데이터로 대체하고, 메일은 실제 발송 없이 발송될 내용만 반환한다. 단, `summarize` 단계는 `--demo`의 영향을 받지 않고 항상 `OPENAI_API_KEY`로 실제 OpenAI API를 호출한다 (의도된 제약; CLI에 요약을 가짜로 대체하는 옵션은 없음).
 
 ## 환경변수
 
@@ -52,6 +52,8 @@ node bin/publish.js --demo   # 수집/발송을 고정 샘플·미발송으로 �
 
 ```
 OPENAI_API_KEY         # 필수 (요약 단계, --demo 여부와 무관하게 항상 필요)
+TOSS_CLIENT_ID         # 필수 (토스증권 Open API, 국내 시황/종목 수집)
+TOSS_CLIENT_SECRET     # 필수 (토스증권 Open API)
 NAVER_EMAIL            # 필수 (발송 계정, SMTP 인증 아이디이자 메일의 발신 주소)
 NAVER_APP_PASSWORD     # 필수 (네이버 앱 비밀번호, 로그인 비밀번호 아님)
 MAIL_TO=hec8897@naver.com  # 수신 주소 (미설정 시 NAVER_EMAIL로 발송)
