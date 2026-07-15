@@ -15,7 +15,7 @@ const CARD_COPY_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          code: { type: 'string', description: '오늘 거래대금 상위 종목 중 하나의 코드' },
+          code: { type: 'string', description: '왓치리스트 종목 코드 중 하나' },
           note: { type: 'string', description: '해당 종목에 대한 한 줄 코멘트' },
         },
         required: ['code', 'note'],

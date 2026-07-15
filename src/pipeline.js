@@ -44,7 +44,7 @@ function assembleCardCopy(dailyData, summary) {
 }
 
 export async function runPipeline(config, opts = {}) {
-  const dailyData = await collectDaily(opts)
+  const dailyData = await collectDaily(config, opts)
   const summary = await summarize(dailyData, opts)
   const cardCopy = assembleCardCopy(dailyData, summary)
   const pngPaths = await renderCards(cardCopy, {

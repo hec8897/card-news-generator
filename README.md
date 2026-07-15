@@ -5,7 +5,7 @@
 
 - 계정 콘셉트: `@마켓노트` (주식 시황/종목 뉴스 카드)
 - 캐러셀: 커버 → 지수 → 한 줄 요약 → 종목픽 → 마무리 (5장, 1080×1350, 4:5)
-- 시장: 한국(코스피/코스닥 + 거래대금 상위 3종목, 매일 자동 산출) — 토스증권 Open API가 미국 지수를 지원하지 않아 미국 시황은 범위에서 제외
+- 시장: 한국(코스피/코스닥 + 관심 종목) — 토스증권 Open API가 미국 지수를 지원하지 않아 미국 시황은 범위에서 제외
 
 > 상세 설계는 [docs/superpowers/specs/2026-06-28-stock-news-card-generator-design.md](docs/superpowers/specs/2026-06-28-stock-news-card-generator-design.md) 참고.
 
