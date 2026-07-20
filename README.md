@@ -11,7 +11,7 @@
 
 ## 현재 상태
 
-Phase 1 구현 완료: 수집 → AI 요약 → PNG 렌더 → 메일 발송까지 `node bin/publish.js`로 동작.
+Phase 1 구현 완료: 수집 → AI 요약 → PNG 렌더 → 메일 발송까지 `node bin/publish.ts`로 동작.
 인스타그램 자동 발행(Phase 2)은 아직 미구현.
 
 ## 파이프라인
@@ -39,16 +39,19 @@ collect ──DailyData──▶ summarize ──CardCopy──▶ render ──
 npm install
 cp .env.example .env   # 아래 "환경변수" 참고해 값 채우기
 npm run publish              # 전체 파이프라인 (수집 → 요약 → 렌더 → 메일 발송)
-node bin/publish.js --style neon
-node bin/publish.js --demo   # 수집/발송을 고정 샘플·미발송으로 대체 (요약은 실제 API 호출)
+npm run typecheck            # tsc --noEmit (빌드 없이 타입 체크만)
+node bin/publish.ts --style neon
+node bin/publish.ts --demo   # 수집/발송을 고정 샘플·미발송으로 대체 (요약은 실제 API 호출)
 ```
+
+> TypeScript(ESM)로 작성. **Node 23.6+의 네이티브 타입 스트리핑**으로 빌드 단계 없이 `.ts`를 그대로 실행한다(`node bin/publish.ts`). 타입 검증은 `npm run typecheck`.
 
 - `--style <neon>` — 카드 디자인 시안 선택 (기본값은 `STYLE` 환경변수, 그마저 없으면 `neon`). 현재는 `neon`만 지원하며, 다른 값을 넘기면 명확한 에러로 실패한다.
 - `--demo` — `collectDaily`가 KR 시황·뉴스 수집을 고정 샘플 데이터로 대체하고, 메일은 실제 발송 없이 발송될 내용만 반환한다. 단, `summarize` 단계는 `--demo`의 영향을 받지 않고 항상 `OPENAI_API_KEY`로 실제 OpenAI API를 호출한다 (의도된 제약; CLI에 요약을 가짜로 대체하는 옵션은 없음).
 
 ## 환경변수
 
-`.env.example`을 복사해 `.env`를 만들고 값을 채운다 (`.env`는 gitignore됨). `bin/publish.js`가 실행 시 `.env`를 자동 로드한다.
+`.env.example`을 복사해 `.env`를 만들고 값을 채운다 (`.env`는 gitignore됨). `bin/publish.ts`가 실행 시 `.env`를 자동 로드한다.
 
 ```
 OPENAI_API_KEY         # 필수 (요약 단계, --demo 여부와 무관하게 항상 필요)

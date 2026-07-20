@@ -1,7 +1,7 @@
-// src/render/render.js
 import { chromium } from 'playwright'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { CardCopy } from '../types.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -17,17 +17,18 @@ const SLIDES = [
   { label: 'B5 Closing', file: '05-closing.png' },
 ]
 
-function applyCardCopy(cardCopy) {
-  const setText = (slot, value) => {
+// 브라우저 컨텍스트에서 실행 (Node API 사용 불가) — 타입은 Node가 실행 전 제거함
+function applyCardCopy(cardCopy: CardCopy) {
+  const setText = (slot: string, value: string) => {
     const el = document.querySelector(`[data-slot="${slot}"]`)
     if (el) el.textContent = value
   }
-  const setDirection = (el, isUp) => {
+  const setDirection = (el: Element, isUp: boolean) => {
     el.classList.toggle('up-text', isUp)
     el.classList.toggle('down-text', !isUp)
   }
-  const setPct = (slot, isUp, pct) => {
-    const el = document.querySelector(`[data-slot="${slot}"]`)
+  const setPct = (slot: string, isUp: boolean, pct: number) => {
+    const el = document.querySelector(`[data-slot="${slot}"]`)!
     el.textContent = `${isUp ? '▲' : '▼'} ${Math.abs(pct)}%`
     setDirection(el, isUp)
   }
@@ -47,11 +48,11 @@ function applyCardCopy(cardCopy) {
 
   cardCopy.picks.forEach((pick, i) => {
     setText(`picks.${i}.name`, pick.name)
-    const badge = document.querySelector(`[data-slot="picks.${i}.pct"]`)
+    const badge = document.querySelector(`[data-slot="picks.${i}.pct"]`)!
     badge.textContent = `${pick.isUp ? '+' : '-'}${pick.pct}%`
     badge.classList.toggle('badge-up', pick.isUp)
     badge.classList.toggle('badge-down', !pick.isUp)
-    const card = document.querySelector(`[data-pick="${i}"]`)
+    const card = document.querySelector(`[data-pick="${i}"]`)!
     card.classList.toggle('pick-up', pick.isUp)
     card.classList.toggle('pick-down', !pick.isUp)
     setText(`picks.${i}.note`, pick.note)
@@ -62,7 +63,10 @@ function applyCardCopy(cardCopy) {
   setText('tomorrowPoint', cardCopy.tomorrowPoint)
 }
 
-export async function renderCards(cardCopy, { style = 'neon', outDir } = {}) {
+export async function renderCards(
+  cardCopy: CardCopy,
+  { style = 'neon', outDir }: { style?: string; outDir: string },
+): Promise<string[]> {
   if (style !== 'neon') {
     throw new Error(`render: 지원하지 않는 스타일 '${style}' (현재 neon만 지원)`)
   }
@@ -74,7 +78,7 @@ export async function renderCards(cardCopy, { style = 'neon', outDir } = {}) {
     await page.evaluate(applyCardCopy, cardCopy)
     await page.evaluate(() => document.fonts.ready)
 
-    const paths = []
+    const paths: string[] = []
     for (const slide of SLIDES) {
       const outPath = path.join(outDir, slide.file)
       await page.locator(`[data-label="${slide.label}"]`).screenshot({ path: outPath })

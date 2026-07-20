@@ -13,7 +13,7 @@ if [ -f "$MARKER_FILE" ]; then
   exit 0
 fi
 
-if /opt/homebrew/bin/node bin/publish.js; then
+if /opt/homebrew/bin/node bin/publish.ts; then
   touch "$MARKER_FILE"
 else
   echo "실패 — 다음 재시도 때 다시 시도"

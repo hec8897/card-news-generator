@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import type { DailyData, Summary } from './types.ts'
 
 const SCHEMA_NAME = 'emit_card_copy'
 
@@ -34,7 +35,7 @@ const SYSTEM_PROMPT = `너는 인스타그램 주식뉴스 계정 '@마켓노트
 간결하고 신뢰감 있는 한국어 톤으로 쓰고, 과장하거나 투자를 권유하지 마.
 이 카드는 정보 요약이지 투자 조언이 아니야.`
 
-export async function summarize(dailyData, { client } = {}) {
+export async function summarize(dailyData: DailyData, { client }: { client?: OpenAI } = {}): Promise<Summary> {
   const openai = client ?? new OpenAI()
   const response = await openai.chat.completions.create({
     model: 'gpt-5.5',
@@ -49,5 +50,5 @@ export async function summarize(dailyData, { client } = {}) {
   })
   const content = response.choices[0]?.message?.content
   if (!content) throw new Error('summarize: 모델이 구조화 출력을 반환하지 않음')
-  return JSON.parse(content)
+  return JSON.parse(content) as Summary
 }

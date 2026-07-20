@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// bin/publish.js
-import { runPipeline } from '../src/pipeline.js'
-import { config } from '../src/config.js'
+import { runPipeline } from '../src/pipeline.ts'
+import { config } from '../src/config.ts'
 
 try {
   process.loadEnvFile?.('.env')
@@ -9,7 +8,7 @@ try {
   // .env 없음 (예: GitHub Actions처럼 환경변수를 직접 주입하는 환경) — 무시
 }
 
-function argFlag(args, name) {
+function argFlag(args: string[], name: string): string | undefined {
   const i = args.indexOf(name)
   return i === -1 ? undefined : args[i + 1]
 }

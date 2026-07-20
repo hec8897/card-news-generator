@@ -13,13 +13,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24' # .ts 네이티브 실행(타입 스트리핑)에 Node 23.6+ 필요
 
       - run: npm install
 
       - run: npx playwright install --with-deps chromium
 
-      - run: node bin/publish.js
+      - run: node bin/publish.ts
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TOSS_CLIENT_ID: ${{ secrets.TOSS_CLIENT_ID }}

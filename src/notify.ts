@@ -1,6 +1,12 @@
 import nodemailer from 'nodemailer'
+import type Mail from 'nodemailer/lib/mailer/index.js'
+import type { CardCopy, NotifyOpts } from './types.ts'
 
-export function buildMailOptions(cardCopy, pngPaths, { warnings = [], to } = {}) {
+export function buildMailOptions(
+  cardCopy: CardCopy,
+  pngPaths: string[],
+  { warnings = [], to }: NotifyOpts = {},
+): Mail.Options {
   const warningBlock = warnings.length ? `⚠️ ${warnings.join(' / ')}\n\n` : ''
   const picksText = cardCopy.picks
     .map((p) => `- ${p.name} (${p.isUp ? '▲' : '▼'}${p.pct}%): ${p.note}`)
@@ -20,7 +26,11 @@ export function buildMailOptions(cardCopy, pngPaths, { warnings = [], to } = {})
   }
 }
 
-export async function sendCardNewsMail(cardCopy, pngPaths, opts = {}) {
+export async function sendCardNewsMail(
+  cardCopy: CardCopy,
+  pngPaths: string[],
+  opts: NotifyOpts = {},
+): Promise<Mail.Options> {
   const mailOptions = buildMailOptions(cardCopy, pngPaths, opts)
   if (opts.demo) return mailOptions
   const transporter = nodemailer.createTransport({
