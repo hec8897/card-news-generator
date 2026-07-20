@@ -1,4 +1,5 @@
 const BASE = 'https://openapi.tossinvest.com'
+const TOP_STOCK_COUNT = 3
 
 async function getAccessToken() {
   const res = await fetch(`${BASE}/oauth2/token`, {
@@ -40,27 +41,46 @@ async function fetchIndex(symbol, name, token) {
   }
 }
 
-async function fetchStock(code, name, token) {
-  const { result } = await fetchJson(`/api/v1/candles?symbol=${code}&interval=1d&count=2`, token)
-  const q = quoteFromCandles(result.candles)
-  return { code, name, value: q.latest.toLocaleString('en-US'), pct: q.pct, isUp: q.isUp }
+async function fetchTopStocks(token) {
+  const { result } = await fetchJson(
+    `/api/v1/rankings?type=MARKET_TRADING_AMOUNT&marketCountry=KR&duration=realtime&count=${TOP_STOCK_COUNT}`,
+    token,
+  )
+  const symbols = result.rankings.map((r) => r.symbol)
+  const { result: stocks } = await fetchJson(`/api/v1/stocks?symbols=${symbols.join(',')}`, token)
+  const nameBySymbol = Object.fromEntries(stocks.map((s) => [s.symbol, s.name]))
+
+  return result.rankings.map((r) => {
+    const pct = parseFloat(r.price.changeRate) * 100
+    return {
+      code: r.symbol,
+      name: nameBySymbol[r.symbol] ?? r.symbol,
+      value: parseFloat(r.price.lastPrice).toLocaleString('en-US'),
+      pct: Number(Math.abs(pct).toFixed(2)),
+      isUp: pct >= 0,
+    }
+  })
 }
 
-export function demoKr(watchlist) {
+export function demoKr() {
   return {
     kospi: { code: 'KOSPI', name: '코스피', value: '7,246.79', pct: 5.35, isUp: false },
     kosdaq: { code: 'KOSDAQ', name: '코스닥', value: '785.00', pct: 5.56, isUp: false },
-    watchlist: watchlist.map((w, i) => ({ code: w.code, name: w.name, value: '277,500', pct: 6.25, isUp: i % 2 === 0 })),
+    watchlist: [
+      { code: '005930', name: '삼성전자', value: '277,500', pct: 6.25, isUp: true },
+      { code: '000660', name: 'SK하이닉스', value: '2,022,000', pct: 5.3, isUp: true },
+      { code: '035420', name: 'NAVER', value: '184,400', pct: 4.31, isUp: false },
+    ],
   }
 }
 
-export async function collectKr(watchlist, { demo = false } = {}) {
-  if (demo) return demoKr(watchlist)
+export async function collectKr({ demo = false } = {}) {
+  if (demo) return demoKr()
   const token = await getAccessToken()
-  const [kospi, kosdaq, ...stocks] = await Promise.all([
+  const [kospi, kosdaq, watchlist] = await Promise.all([
     fetchIndex('KOSPI', '코스피', token),
     fetchIndex('KOSDAQ', '코스닥', token),
-    ...watchlist.map((w) => fetchStock(w.code, w.name, token)),
+    fetchTopStocks(token),
   ])
-  return { kospi, kosdaq, watchlist: stocks }
+  return { kospi, kosdaq, watchlist }
 }
