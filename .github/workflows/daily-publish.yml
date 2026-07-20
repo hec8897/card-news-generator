@@ -1,8 +1,8 @@
 name: Daily card news publish
 
 on:
-  schedule:
-    - cron: '0 23 * * *' # 매일 08:00 KST (UTC+9) = 23:00 UTC 전날
+  # 자동 스케줄은 로컬 launchd로 이전 (토스증권 API가 IP 화이트리스트를 요구해 GitHub Actions에서 401/403).
+  # 필요하면 수동 실행(workflow_dispatch)만 가능하게 유지.
   workflow_dispatch: {}
 
 jobs:
