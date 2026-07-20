@@ -23,7 +23,6 @@ function outDirFor(date) {
 function assembleCardCopy(dailyData, summary) {
   const kr = dailyData.kr
   if (!kr) throw new Error('pipeline: 한국 시황 데이터 없이는 카드를 만들 수 없음')
-  const us = dailyData.us
 
   const picks = summary.picks.map((p) => {
     const match = kr.watchlist.find((w) => w.code === p.code) ?? kr.watchlist[0]
@@ -35,7 +34,6 @@ function assembleCardCopy(dailyData, summary) {
     coverSubtitle: summary.coverSubtitle,
     kospi: kr.kospi,
     kosdaq: kr.kosdaq,
-    nasdaq: us ? us.nasdaq : { value: '-', pct: 0, isUp: true },
     summaryLead: summary.summaryLead,
     summaryRest: summary.summaryRest,
     picks,

@@ -42,9 +42,6 @@ function applyCardCopy(cardCopy) {
   setText('kosdaq.value', cardCopy.kosdaq.value)
   setPct('kosdaq.pct', cardCopy.kosdaq.isUp, cardCopy.kosdaq.pct)
 
-  setText('nasdaq.value', cardCopy.nasdaq.value)
-  setPct('nasdaq.pct', cardCopy.nasdaq.isUp, cardCopy.nasdaq.pct)
-
   setText('summary.lead', cardCopy.summaryLead)
   setText('summary.rest', cardCopy.summaryRest)
 
