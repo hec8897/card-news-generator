@@ -3,3 +3,5 @@ out/
 logs/
 .env
 *.log
+bin/deploy.sh
+bin/run-remote.sh
