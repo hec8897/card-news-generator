@@ -17,8 +17,14 @@ export async function getAccessToken(): Promise<string> {
   return json.access_token
 }
 
-export async function fetchToss(path: string, token: string): Promise<any> {
-  const res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error(`토스증권 조회 실패 (${path}): ${res.status}`)
-  return res.json()
+export async function fetchToss(path: string, token: string, retries = 3): Promise<any> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.status === 429 && attempt < retries) {
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1))) // rate-limit 백오프
+      continue
+    }
+    if (!res.ok) throw new Error(`토스증권 조회 실패 (${path}): ${res.status}`)
+    return res.json()
+  }
 }

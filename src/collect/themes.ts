@@ -9,7 +9,16 @@ export const THEMES: Record<string, string[]> = {
   전력: ['015760', '034020', '267260', '010120', '298040', '052690'],
 }
 
-/** 테마별 구성종목 시가총액을 실시간 계산해 시총 내림차순으로 반환. */
+// 일봉 2개(오늘/전일)로 장마감 종가·등락률 계산. /prices는 시간외까지 섞여 "장마감 기준"이 안 됨.
+async function fetchCloseQuote(code: string, token: string): Promise<{ price: number; pct: number }> {
+  const { result } = await fetchToss(`/api/v1/candles?symbol=${code}&interval=1d&count=2`, token)
+  const c = result.candles
+  const price = parseFloat(c[0].closePrice)
+  const prev = parseFloat(c[1].closePrice)
+  return { price, pct: Number((((price - prev) / prev) * 100).toFixed(2)) }
+}
+
+/** 테마별 구성종목의 장마감 종가·등락률·시가총액을 시총 내림차순으로 반환. */
 export async function collectThemeCaps(
   themes: Record<string, string[]> = THEMES,
   { topN, market }: { topN?: number; market?: string } = {},
@@ -17,22 +26,28 @@ export async function collectThemeCaps(
   const token = await getAccessToken()
   const allSymbols = [...new Set(Object.values(themes).flat())]
 
-  const [{ result: stocks }, { result: prices }] = await Promise.all([
-    fetchToss(`/api/v1/stocks?symbols=${allSymbols.join(',')}`, token),
-    fetchToss(`/api/v1/prices?symbols=${allSymbols.join(',')}`, token),
-  ])
+  const { result: stocks } = await fetchToss(`/api/v1/stocks?symbols=${allSymbols.join(',')}`, token)
   const info: Record<string, any> = Object.fromEntries(stocks.map((s: any) => [s.symbol, s]))
-  const priceBy: Record<string, number> = Object.fromEntries(
-    prices.map((p: any) => [p.symbol, parseFloat(p.lastPrice)]),
-  )
+
+  // 종목별 장마감 종가/등락률. ponytail: 순차 호출 — 병렬로 쏘면 토스 rate-limit(429).
+  // 종목 수가 많이 늘면 소규모 동시성 풀로. 조회 실패 종목(상폐/일시오류)은 조용히 제외.
+  const quote: Record<string, { price: number; pct: number }> = {}
+  for (const code of allSymbols) {
+    try {
+      quote[code] = await fetchCloseQuote(code, token)
+    } catch {
+      /* 상폐/미존재 종목만 제외 (429는 fetchToss가 재시도) */
+    }
+    await new Promise((r) => setTimeout(r, 120)) // rate-limit 완화
+  }
 
   return Object.entries(themes).map(([theme, symbols]): ThemeResult => {
     let caps = symbols
       .map((code): ThemeCap | null => {
         const s = info[code]
-        const price = priceBy[code]
-        if (!s || !price) return null
-        return { code, name: s.name, market: s.market, price, cap: Number(s.sharesOutstanding) * price }
+        const q = quote[code]
+        if (!s || !q) return null
+        return { code, name: s.name, market: s.market, price: q.price, pct: q.pct, cap: Number(s.sharesOutstanding) * q.price }
       })
       .filter((c): c is ThemeCap => c !== null)
       .filter((c) => !market || c.market === market)

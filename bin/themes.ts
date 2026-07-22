@@ -19,10 +19,16 @@ const topN = Number(argFlag(args, '--top') ?? 3)
 const market = argFlag(args, '--market') ?? 'KOSPI'
 
 const won = (n: number) => (n / 1e12).toFixed(1) + '조'
+const rate = (p: number) => `${p >= 0 ? '▲' : '▼'}${Math.abs(p).toFixed(2)}%`
 
 const results = await collectThemeCaps(undefined, { topN, market })
 for (const { theme, stocks } of results) {
-  console.log(`\n【${theme}】 ${market} 시총 TOP${topN}`)
-  stocks.forEach((s, i) => console.log(`  ${i + 1}. ${s.name.padEnd(12)} ${won(s.cap).padStart(9)}`))
+  console.log(`\n【${theme}】 ${market} 시총 TOP${topN} (장마감 기준)`)
+  stocks.forEach((s, i) =>
+    console.log(
+      `  ${i + 1}. ${s.name.padEnd(12)} ${s.price.toLocaleString('en-US').padStart(10)}원 ` +
+        `${rate(s.pct).padStart(9)} ${won(s.cap).padStart(9)}`,
+    ),
+  )
   if (stocks.length < topN) console.log(`  (${market} 상장 후보 부족)`)
 }
