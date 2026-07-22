@@ -60,6 +60,20 @@ export interface CardCopy {
   tomorrowPoint: string
 }
 
+/** 테마 구성종목의 시가총액 (상장주식수 × 현재가; 우선주 포함 가능 — 순위 참고용) */
+export interface ThemeCap {
+  code: string
+  name: string
+  market: string // 'KOSPI' | 'KOSDAQ'
+  price: number
+  cap: number
+}
+
+export interface ThemeResult {
+  theme: string
+  stocks: ThemeCap[] // 시총 내림차순
+}
+
 export interface Config {
   STYLE: string
 }

@@ -1,28 +1,7 @@
+import { getAccessToken, fetchToss } from './toss.ts'
 import type { KrData, Quote, CollectOpts } from '../types.ts'
 
-const BASE = 'https://openapi.tossinvest.com'
 const TOP_STOCK_COUNT = 3
-
-async function getAccessToken(): Promise<string> {
-  const res = await fetch(`${BASE}/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: process.env.TOSS_CLIENT_ID ?? '',
-      client_secret: process.env.TOSS_CLIENT_SECRET ?? '',
-    }),
-  })
-  if (!res.ok) throw new Error(`토스증권 토큰 발급 실패: ${res.status}`)
-  const json = await res.json()
-  return json.access_token
-}
-
-async function fetchJson(path: string, token: string): Promise<any> {
-  const res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error(`토스증권 조회 실패 (${path}): ${res.status}`)
-  return res.json()
-}
 
 function quoteFromCandles(candles: { closePrice: string }[]) {
   const latest = parseFloat(candles[0].closePrice)
@@ -32,7 +11,7 @@ function quoteFromCandles(candles: { closePrice: string }[]) {
 }
 
 async function fetchIndex(symbol: string, name: string, token: string): Promise<Quote> {
-  const { result } = await fetchJson(`/api/v1/market-indicators/${symbol}/candles?interval=1d&count=2`, token)
+  const { result } = await fetchToss(`/api/v1/market-indicators/${symbol}/candles?interval=1d&count=2`, token)
   const q = quoteFromCandles(result.candles)
   return {
     code: symbol,
@@ -44,12 +23,12 @@ async function fetchIndex(symbol: string, name: string, token: string): Promise<
 }
 
 async function fetchTopStocks(token: string): Promise<Quote[]> {
-  const { result } = await fetchJson(
+  const { result } = await fetchToss(
     `/api/v1/rankings?type=MARKET_TRADING_AMOUNT&marketCountry=KR&duration=realtime&count=${TOP_STOCK_COUNT}`,
     token,
   )
   const symbols = result.rankings.map((r: any) => r.symbol)
-  const { result: stocks } = await fetchJson(`/api/v1/stocks?symbols=${symbols.join(',')}`, token)
+  const { result: stocks } = await fetchToss(`/api/v1/stocks?symbols=${symbols.join(',')}`, token)
   const nameBySymbol: Record<string, string> = Object.fromEntries(stocks.map((s: any) => [s.symbol, s.name]))
 
   return result.rankings.map((r: any): Quote => {

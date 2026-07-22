@@ -6,6 +6,7 @@
   "engines": { "node": ">=23.6" },
   "scripts": {
     "publish": "node bin/publish.ts",
+    "themes": "node bin/themes.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
