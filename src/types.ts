@@ -19,6 +19,7 @@ export interface Headline {
   title?: string
   link?: string
   pubDate?: string
+  description?: string // 기사 요약 (AI 선별용)
 }
 
 export interface DailyData {
@@ -75,6 +76,45 @@ export interface ThemeResult {
   stocks: ThemeCap[] // 시총 내림차순
 }
 
+/** 투자자별 거래대금 (원). net = 순매수(매수-매도) */
+export interface InvestorFlow {
+  buy: number
+  sell: number
+  net: number
+}
+
+export interface ThemeBrief {
+  theme: string
+  returnPct: number // 시총 가중 평균 등락률 %
+  top3: ThemeCap[] // 시총 상위 3 (각 종목 일일 등락률 포함)
+}
+
+/** AI가 후보 중 선별한 핵심 뉴스 */
+export interface SelectedNews {
+  title: string
+  link?: string
+  why: string // 오늘 시장/테마를 왜 움직였나 (AI)
+}
+
+/** AI 평가 결과 (MarketBrief를 입력으로) */
+export interface MarketEval {
+  marketEval: string // 오늘 코스피 시장 총평
+  news: SelectedNews[] // 선별된 핵심 뉴스
+}
+
+/** 카드뉴스용 시장 종합 데이터 (시장 평가는 AI 단계에서 별도 생성) */
+export interface MarketBrief {
+  date: string
+  kospi: { value: string; pct: number; isUp: boolean }
+  investorTrading: {
+    individual: InvestorFlow
+    foreigner: InvestorFlow
+    institution: InvestorFlow
+  }
+  themes: ThemeBrief[]
+  news: Headline[]
+}
+
 export interface Config {
   STYLE: string
 }
@@ -82,6 +122,7 @@ export interface Config {
 export interface CollectOpts {
   demo?: boolean
   limit?: number
+  queries?: string[] // 뉴스 검색어 (기본: 시장 키워드). 테마명 넣으면 테마 뉴스까지 후보에 포함
 }
 
 export interface PipelineOpts {

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **커밋/푸시는 사용자가 명시적으로 요청할 때만.** 요청 없이 `git commit`·`git push` 하지 말 것. 변경은 파일 수정까지만 하고, 커밋 여부는 사용자가 결정.
+
 주식뉴스 인스타그램 카드 자동 발행기. 매일 `node bin/publish.ts` 한 번으로 데이터 수집 → AI 요약 → PNG 캐러셀(5장) 렌더 → (Phase 1) 메일 발송까지 도는 파이프라인. 상세 설계는 `docs/superpowers/specs/`.
 
 ## Commands

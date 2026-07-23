@@ -5,3 +5,4 @@ logs/
 *.log
 bin/deploy.sh
 bin/run-remote.sh
+.DS_Store
