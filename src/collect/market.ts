@@ -1,14 +1,11 @@
-import { getAccessToken, fetchToss } from './toss.ts'
+// 테마 시황 경로의 수집기 (bin/brief.ts → ai/evaluate.ts). design/의 새 카드가 쓸 데이터.
+import { getAccessToken, fetchToss, fetchDailyChange } from '../toss.ts'
 import { collectThemeCaps, THEMES } from './themes.ts'
 import { collectNews } from './news.ts'
-import type { MarketBrief, InvestorFlow, ThemeBrief } from '../types.ts'
+import type { MarketBrief, InvestorFlow, ThemeBrief } from '../types/market.ts'
 
 async function fetchKospi(token: string): Promise<MarketBrief['kospi']> {
-  const { result } = await fetchToss('/api/v1/market-indicators/KOSPI/candles?interval=1d&count=2', token)
-  const c = result.candles
-  const price = parseFloat(c[0].closePrice)
-  const prev = parseFloat(c[1].closePrice)
-  const pct = Number((((price - prev) / prev) * 100).toFixed(2))
+  const { price, pct } = await fetchDailyChange('/api/v1/market-indicators/KOSPI/candles?interval=1d&count=2', token)
   return {
     value: price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     pct,
@@ -35,7 +32,7 @@ export async function collectMarketBrief(): Promise<MarketBrief> {
     fetchKospi(token),
     fetchInvestorTrading(token),
     collectThemeCaps(THEMES, { market: 'KOSPI' }), // 코스피 구성종목 전체 (시총 내림차순)
-    collectNews({ limit: 10, queries: ['코스피', '증시', ...Object.keys(THEMES)] }), // 시장+테마 뉴스 후보 (AI가 선별)
+    collectNews({ limit: 10 }), // 시장+테마 뉴스 후보 (쿼리는 news.ts의 NEWS_QUERIES, AI가 선별)
   ])
 
   const themes: ThemeBrief[] = themeCaps.map(({ theme, stocks }): ThemeBrief => {

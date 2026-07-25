@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import type { MarketBrief, MarketEval, SelectedNews } from './types.ts'
+import type { MarketBrief, MarketEval, SelectedNews } from '../types/market.ts'
 
 const SCHEMA_NAME = 'emit_market_eval'
 

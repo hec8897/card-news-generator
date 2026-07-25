@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import type { DailyData, Summary } from './types.ts'
+import type { DailyData, Summary } from '../types/card.ts'
 
 const SCHEMA_NAME = 'emit_card_copy'
 

@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import type Mail from 'nodemailer/lib/mailer/index.js'
-import type { CardCopy, NotifyOpts } from './types.ts'
+import type { NotifyOpts } from './types/shared.ts'
+import type { CardCopy } from './types/card.ts'
 
 export function buildMailOptions(
   cardCopy: CardCopy,

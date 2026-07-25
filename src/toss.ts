@@ -1,5 +1,5 @@
 // 토스증권 Open API 공용 클라이언트 (OAuth2 client_credentials).
-// kr.ts(시황 수집)와 themes.ts(테마 시총) 등이 공유.
+// collect/ 하위 수집 모듈들이 공유.
 const BASE = 'https://openapi.tossinvest.com'
 
 export async function getAccessToken(): Promise<string> {
@@ -12,9 +12,22 @@ export async function getAccessToken(): Promise<string> {
       client_secret: process.env.TOSS_CLIENT_SECRET ?? '',
     }),
   })
-  if (!res.ok) throw new Error(`토스증권 토큰 발급 실패: ${res.status}`)
+  // 403은 대개 IP 화이트리스트 미등록 — 본문에 사유가 들어있어 그대로 노출
+  if (!res.ok) throw new Error(`토스증권 토큰 발급 실패: ${res.status} ${await res.text()}`)
   const json = await res.json()
   return json.access_token
+}
+
+/**
+ * 일봉 2개(최신/전일)로 장마감 종가와 등락률을 계산. 지수·종목 공통.
+ * /prices는 시간외까지 섞여 "장마감 기준"이 안 되므로 candles를 쓴다.
+ * pct는 부호 있음 — 절댓값+isUp이 필요한 쪽에서 변환할 것.
+ */
+export async function fetchDailyChange(path: string, token: string): Promise<{ price: number; pct: number }> {
+  const { result } = await fetchToss(path, token)
+  const price = parseFloat(result.candles[0].closePrice)
+  const prev = parseFloat(result.candles[1].closePrice)
+  return { price, pct: Number((((price - prev) / prev) * 100).toFixed(2)) }
 }
 
 export async function fetchToss(path: string, token: string, retries = 3): Promise<any> {

@@ -1,10 +1,11 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { collectDaily } from './collect/index.ts'
-import { summarize } from './summarize.ts'
+import { collectDaily } from './collect/legacy-kr.ts'
+import { summarize } from './ai/summarize.ts'
 import { renderCards } from './render/render.ts'
 import { sendCardNewsMail } from './notify.ts'
-import type { CardCopy, Config, DailyData, PipelineOpts, Summary } from './types.ts'
+import type { Config, PipelineOpts } from './types/shared.ts'
+import type { CardCopy, DailyData, Summary } from './types/card.ts'
 
 function formatCardDate(date: Date): string {
   const y = date.getFullYear()

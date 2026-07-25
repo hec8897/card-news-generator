@@ -1,5 +1,5 @@
-import { getAccessToken, fetchToss } from './toss.ts'
-import type { ThemeCap, ThemeResult } from '../types.ts'
+import { getAccessToken, fetchToss, fetchDailyChange } from '../toss.ts'
+import type { ThemeCap, ThemeResult } from '../types/market.ts'
 
 // 토스 API엔 테마 분류가 없어 구성종목은 수기 큐레이션(코스피/코스닥 섞임 — market으로 필터).
 // ponytail: 종목 편입은 손으로 유지. 자동 분류가 필요해지면 외부 소스를 붙일 것.
@@ -9,15 +9,6 @@ export const THEMES: Record<string, string[]> = {
   전력: ['015760', '034020', '267260', '010120', '298040', '052690'],
   뷰티: ['278470', '090430', '051900', '161890', '192820', '002790'], // 에이피알/아모레퍼시픽/LG생활건강/한국콜마/코스맥스/아모레G
   금융: ['105560', '316140', '086790', '055550'], // KB/우리/하나/신한
-}
-
-// 일봉 2개(오늘/전일)로 장마감 종가·등락률 계산. /prices는 시간외까지 섞여 "장마감 기준"이 안 됨.
-async function fetchCloseQuote(code: string, token: string): Promise<{ price: number; pct: number }> {
-  const { result } = await fetchToss(`/api/v1/candles?symbol=${code}&interval=1d&count=2`, token)
-  const c = result.candles
-  const price = parseFloat(c[0].closePrice)
-  const prev = parseFloat(c[1].closePrice)
-  return { price, pct: Number((((price - prev) / prev) * 100).toFixed(2)) }
 }
 
 /** 테마별 구성종목의 장마감 종가·등락률·시가총액을 시총 내림차순으로 반환. */
@@ -36,7 +27,7 @@ export async function collectThemeCaps(
   const quote: Record<string, { price: number; pct: number }> = {}
   for (const code of allSymbols) {
     try {
-      quote[code] = await fetchCloseQuote(code, token)
+      quote[code] = await fetchDailyChange(`/api/v1/candles?symbol=${code}&interval=1d&count=2`, token)
     } catch {
       /* 상폐/미존재 종목만 제외 (429는 fetchToss가 재시도) */
     }

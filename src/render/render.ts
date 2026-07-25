@@ -1,7 +1,7 @@
 import { chromium } from 'playwright'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { CardCopy } from '../types.ts'
+import type { CardCopy } from '../types/card.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 

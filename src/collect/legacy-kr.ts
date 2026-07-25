@@ -1,24 +1,23 @@
-import { getAccessToken, fetchToss } from './toss.ts'
-import type { KrData, Quote, CollectOpts } from '../types.ts'
+// 구 발행 경로 전용 수집기 (pipeline.ts → render/neon.html).
+// 코스피/코스닥 지수 + 거래대금 상위 3종목. design/의 새 테마 카드로 넘어가면 market.ts가 대체한다.
+import { getAccessToken, fetchToss, fetchDailyChange } from '../toss.ts'
+import { collectNews } from './news.ts'
+import type { CollectOpts, Quote } from '../types/shared.ts'
+import type { DailyData, KrData } from '../types/card.ts'
 
 const TOP_STOCK_COUNT = 3
 
-function quoteFromCandles(candles: { closePrice: string }[]) {
-  const latest = parseFloat(candles[0].closePrice)
-  const prev = parseFloat(candles[1].closePrice)
-  const pct = ((latest - prev) / prev) * 100
-  return { latest, pct: Number(Math.abs(pct).toFixed(2)), isUp: pct >= 0 }
-}
-
 async function fetchIndex(symbol: string, name: string, token: string): Promise<Quote> {
-  const { result } = await fetchToss(`/api/v1/market-indicators/${symbol}/candles?interval=1d&count=2`, token)
-  const q = quoteFromCandles(result.candles)
+  const { price, pct } = await fetchDailyChange(
+    `/api/v1/market-indicators/${symbol}/candles?interval=1d&count=2`,
+    token,
+  )
   return {
     code: symbol,
     name,
-    value: q.latest.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    pct: q.pct,
-    isUp: q.isUp,
+    value: price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    pct: Math.abs(pct),
+    isUp: pct >= 0,
   }
 }
 
@@ -64,4 +63,23 @@ export async function collectKr({ demo = false }: CollectOpts = {}): Promise<KrD
     fetchTopStocks(token),
   ])
   return { kospi, kosdaq, watchlist }
+}
+
+function pick<T>(result: PromiseSettledResult<T>, warnings: string[], message: string): T | null {
+  if (result.status === 'fulfilled') return result.value
+  warnings.push(`${message}: ${(result.reason as Error).message}`)
+  return null
+}
+
+/** 시황+뉴스를 병렬 수집. 뉴스는 없어도 진행하지만 시황이 없으면 발행 자체가 불가. */
+export async function collectDaily(opts: CollectOpts = {}): Promise<DailyData> {
+  const warnings: string[] = []
+  const [krResult, newsResult] = await Promise.allSettled([collectKr(opts), collectNews(opts)])
+
+  const kr = pick(krResult, warnings, '한국 시황 수집 실패')
+  const headlines = pick(newsResult, warnings, '뉴스 헤드라인 수집 실패') ?? []
+
+  if (!kr) throw new Error(`collect: 국내 시황 데이터 수집 실패 — ${warnings.join(' / ')}`)
+
+  return { date: new Date(), kr, headlines, warnings }
 }

@@ -1,4 +1,4 @@
-import type { Headline, CollectOpts } from '../types.ts'
+import type { Headline, CollectOpts } from '../types/shared.ts'
 
 // 네이버 뉴스 검색 오픈 API (서버-투-서버, 무료 25k/일). 키워드로 조준 검색 → 테마/시장 뉴스 후보.
 const ENDPOINT = 'https://openapi.naver.com/v1/search/news.json'
@@ -15,8 +15,23 @@ function clean(s: string): string {
     .trim()
 }
 
+// 테마명을 그대로 검색하면 중의어에 걸린다(전력→범죄 전력, 뷰티→연예, 금융→공기업 후원).
+// 증권가가 실제로 쓰는 업종어로 치환한 것 — 후보를 실측 비교해 골랐다. THEMES 키와 1:1.
+// ponytail: 인터넷주는 잡음이 좀 섞인다. 소프트웨어 테마(NAVER/카카오)에 대응하는
+// 깔끔한 업종 검색어가 없어서 차선. 더 좋은 후보를 찾으면 이 줄만 교체.
+const THEME_QUERIES: Record<string, string> = {
+  반도체: '반도체주',
+  소프트웨어: '인터넷주',
+  전력: '전력기기주',
+  뷰티: '화장품주',
+  금융: '금융',
+}
+
+export const NEWS_QUERIES = ['코스피', '증시', ...Object.values(THEME_QUERIES)]
+
 async function searchNaver(query: string, display: number): Promise<Headline[]> {
-  const url = `${ENDPOINT}?query=${encodeURIComponent(query)}&display=${display}&sort=date`
+  // sort=sim(관련도). sort=date는 발행 몇 분 이내 기사만 긁어와 정치·사건사고가 섞인다.
+  const url = `${ENDPOINT}?query=${encodeURIComponent(query)}&display=${display}&sort=sim`
   const res = await fetch(url, {
     headers: {
       'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID ?? '',
@@ -47,22 +62,28 @@ export function demoNews(limit = 5): Headline[] {
 export async function collectNews({
   demo = false,
   limit = 5,
-  queries = ['코스피', '증시'],
+  queries = NEWS_QUERIES,
 }: CollectOpts = {}): Promise<Headline[]> {
   if (demo) return demoNews(limit)
 
-  const perQuery = Math.max(5, Math.ceil((limit * 2) / queries.length))
-  const results = await Promise.all(queries.map((q) => searchNaver(q, perQuery)))
+  const perQuery = Math.max(3, Math.ceil((limit * 2) / queries.length))
+  // 쿼리 하나가 실패해도 나머지는 살린다 (뉴스는 없어도 파이프라인이 진행되는 부가 데이터)
+  const settled = await Promise.allSettled(queries.map((q) => searchNaver(q, perQuery)))
+  const results = settled.map((r) => (r.status === 'fulfilled' ? r.value : []))
 
-  // link 기준 중복 제거 후 최신순 정렬
+  // 쿼리별 1건씩 라운드로빈 — 전체를 날짜순으로 줄세우면 기사량 많은 테마가 전부 차지한다
   const seen = new Set<string>()
   const merged: Headline[] = []
-  for (const h of results.flat()) {
-    const key = h.link ?? h.title ?? ''
-    if (seen.has(key)) continue
-    seen.add(key)
-    merged.push(h)
+  for (let rank = 0; merged.length < limit && rank < perQuery; rank++) {
+    for (const list of results) {
+      const h = list[rank]
+      if (!h) continue
+      const key = h.link ?? h.title ?? ''
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push(h)
+      if (merged.length >= limit) break
+    }
   }
-  merged.sort((a, b) => new Date(b.pubDate ?? 0).getTime() - new Date(a.pubDate ?? 0).getTime())
-  return merged.slice(0, limit)
+  return merged
 }
