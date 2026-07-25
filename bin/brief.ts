@@ -15,8 +15,8 @@ const brief = await collectMarketBrief()
 if (process.argv.includes('--eval')) {
   const { evaluateBrief } = await import('../src/ai/evaluate.ts')
   const evaluation = await evaluateBrief(brief)
-  // AI 선별 뉴스로 news를 교체하고 marketEval 추가
-  console.log(JSON.stringify({ ...brief, news: evaluation.news, marketEval: evaluation.marketEval }, null, 2))
+  // 평가 결과를 통째로 병합 — evaluation.news(테마 뉴스 3건)가 후보 목록을 덮어쓴다
+  console.log(JSON.stringify({ ...brief, ...evaluation }, null, 2))
 } else {
   console.log(JSON.stringify(brief, null, 2))
 }

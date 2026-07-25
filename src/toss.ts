@@ -19,15 +19,25 @@ export async function getAccessToken(): Promise<string> {
 }
 
 /**
- * 일봉 2개(최신/전일)로 장마감 종가와 등락률을 계산. 지수·종목 공통.
+ * 일봉으로 장마감 종가·등락률·등락폭을 계산. 지수·종목 공통.
  * /prices는 시간외까지 섞여 "장마감 기준"이 안 되므로 candles를 쓴다.
- * pct는 부호 있음 — 절댓값+isUp이 필요한 쪽에서 변환할 것.
+ * pct/diff는 부호 있음 — 절댓값+isUp이 필요한 쪽에서 변환할 것.
+ * count를 늘려 호출하면 `closes`로 시계열(과거→최근)이 따라온다(스파크라인용).
  */
-export async function fetchDailyChange(path: string, token: string): Promise<{ price: number; pct: number }> {
+export async function fetchDailyChange(
+  path: string,
+  token: string,
+): Promise<{ price: number; pct: number; diff: number; closes: number[] }> {
   const { result } = await fetchToss(path, token)
-  const price = parseFloat(result.candles[0].closePrice)
-  const prev = parseFloat(result.candles[1].closePrice)
-  return { price, pct: Number((((price - prev) / prev) * 100).toFixed(2)) }
+  const closes: number[] = result.candles.map((c: { closePrice: string }) => parseFloat(c.closePrice))
+  const [price, prev] = closes
+  const diff = price - prev
+  return {
+    price,
+    pct: Number(((diff / prev) * 100).toFixed(2)),
+    diff: Number(diff.toFixed(2)),
+    closes: [...closes].reverse(), // 토스는 최신순으로 주므로 뒤집어 과거→최근
+  }
 }
 
 export async function fetchToss(path: string, token: string, retries = 3): Promise<any> {

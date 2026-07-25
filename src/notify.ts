@@ -21,7 +21,7 @@ export function buildMailOptions(
   return {
     from: process.env.NAVER_EMAIL,
     to: to || process.env.MAIL_TO || process.env.NAVER_EMAIL,
-    subject: `[마켓노트] ${cardCopy.date} 카드뉴스`,
+    subject: `[money.updown] ${cardCopy.date} 카드뉴스`,
     text,
     attachments: pngPaths.map((filePath, i) => ({ filename: `card-${i + 1}.png`, path: filePath })),
   }

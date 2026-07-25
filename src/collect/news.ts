@@ -25,9 +25,20 @@ const THEME_QUERIES: Record<string, string> = {
   전력: '전력기기주',
   뷰티: '화장품주',
   금융: '금융',
+  자동차: '자동차주',
+  조선: '조선주',
+  방산: '방산주',
+  // ponytail: '바이오주'는 회사명에 "바이오"가 들어간 잡주를 대량으로 긁어와 쓸 수 없다.
+  // '제약주'가 후보 중 가장 깨끗했지만 삼바·셀트리온 쪽 기사는 덜 잡힌다. 더 나은 후보를 찾으면 교체.
+  바이오: '제약주',
 }
 
 export const NEWS_QUERIES = ['코스피', '증시', ...Object.values(THEME_QUERIES)]
+
+/** 테마명 → 뉴스 검색어. 매핑이 없으면 테마명에 `주`를 붙여 최소한 증시 문맥은 준다. */
+export function queryForTheme(theme: string): string {
+  return THEME_QUERIES[theme] ?? `${theme}주`
+}
 
 async function searchNaver(query: string, display: number): Promise<Headline[]> {
   // sort=sim(관련도). sort=date는 발행 몇 분 이내 기사만 긁어와 정치·사건사고가 섞인다.

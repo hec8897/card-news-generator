@@ -31,7 +31,7 @@ const CARD_COPY_SCHEMA = {
   additionalProperties: false,
 }
 
-const SYSTEM_PROMPT = `너는 인스타그램 주식뉴스 계정 '@마켓노트'의 카피라이터야.
+const SYSTEM_PROMPT = `너는 인스타그램 주식뉴스 계정 '@money.updown'의 카피라이터야.
 간결하고 신뢰감 있는 한국어 톤으로 쓰고, 과장하거나 투자를 권유하지 마.
 이 카드는 정보 요약이지 투자 조언이 아니야.`
 

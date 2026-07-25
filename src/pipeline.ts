@@ -15,8 +15,9 @@ function formatCardDate(date: Date): string {
   return `${y}.${m}.${d} · ${weekday}`
 }
 
-function outDirFor(date: Date): string {
-  const dir = path.join('out', date.toISOString().slice(0, 10))
+// 스타일별로 나눈다 — 시안이 여럿이면 파일명이 겹쳐 서로를 덮어쓴다(01-cover.png 등)
+function outDirFor(date: Date, style: string): string {
+  const dir = path.join('out', date.toISOString().slice(0, 10), style)
   mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -46,10 +47,8 @@ export async function runPipeline(config: Config, opts: PipelineOpts = {}) {
   const dailyData = await collectDaily(opts)
   const summary = await summarize(dailyData, opts)
   const cardCopy = assembleCardCopy(dailyData, summary)
-  const pngPaths = await renderCards(cardCopy, {
-    style: opts.style ?? config.STYLE,
-    outDir: outDirFor(dailyData.date),
-  })
+  const style = opts.style ?? config.STYLE
+  const pngPaths = await renderCards(cardCopy, { style, outDir: outDirFor(dailyData.date, style) })
   const mailOptions = await sendCardNewsMail(cardCopy, pngPaths, { warnings: dailyData.warnings, demo: opts.demo })
   return { cardCopy, pngPaths, mailOptions, warnings: dailyData.warnings }
 }
