@@ -23,7 +23,12 @@ if (briefIdx !== -1) {
   // bin/brief.ts --eval 출력을 그대로 받는다 (brief와 eval이 한 객체로 병합된 형태)
   const merged = JSON.parse(readFileSync(args[briefIdx + 1]!, 'utf8'))
   brief = merged
-  evaluation = { marketEval: merged.marketEval, themeComment: merged.themeComment, news: merged.news }
+  evaluation = {
+    marketEval: merged.marketEval,
+    themeComment: merged.themeComment,
+    news: merged.news,
+    marketNews: merged.marketNews,
+  }
 } else {
   const { collectMarketBrief } = await import('../src/collect/market.ts')
   const { evaluateBrief } = await import('../src/ai/evaluate.ts')

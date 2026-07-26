@@ -96,7 +96,8 @@ export function toThemeCardCopy(brief: MarketBrief, evaluation: MarketEval): The
       comment: evaluation.themeComment,
       stocks: today.top3.map((s) => ({ name: s.name, pct: signedPct(s.pct), sign: Math.sign(s.pct) })),
     },
-    news: evaluation.news.map((n) => ({ title: n.title, why: n.why })),
+    // 테마 뉴스 3 + 시장 뉴스 2 = 5 (템플릿 news.0~2 = 테마, news.3~4 = 시장)
+    news: [...evaluation.news, ...evaluation.marketNews].map((n) => ({ title: n.title, why: n.why })),
     marketEval: evaluation.marketEval,
   }
 }

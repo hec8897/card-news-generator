@@ -31,8 +31,23 @@ const SCHEMA = {
         additionalProperties: false,
       },
     },
+    marketNews: {
+      type: 'array',
+      minItems: 2,
+      maxItems: 2,
+      description: '시장 전체를 움직인 핵심 뉴스 2건 (지수·수급·거시·정책). marketNewsCandidates에서 고르고, 테마 뉴스와 중복 피할 것. 정치·행사·홍보성 잡음 제외.',
+      items: {
+        type: 'object',
+        properties: {
+          index: { type: 'integer', description: 'marketNewsCandidates 배열의 인덱스(0부터)' },
+          why: { type: 'string', description: '이 뉴스가 오늘 시장 전체에 왜 중요했는지 한 줄, 50자 이내' },
+        },
+        required: ['index', 'why'],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ['marketEval', 'themeComment', 'news'],
+  required: ['marketEval', 'themeComment', 'news', 'marketNews'],
   additionalProperties: false,
 }
 
@@ -60,8 +75,8 @@ export async function evaluateBrief(brief: MarketBrief, { client }: { client?: O
       top3: t.top3.map((s) => ({ name: s.name, pct: s.pct })),
     })),
     todayTheme: brief.todayTheme,
-    marketNews: brief.news.map((n) => n.title), // 총평 배경지식용 (선별 대상 아님)
     themeNewsCandidates: brief.themeNews.map((n, i) => ({ index: i, title: n.title, description: n.description })),
+    marketNewsCandidates: brief.news.map((n, i) => ({ index: i, title: n.title, description: n.description })),
   }
 
   const response = await openai.chat.completions.create({
@@ -79,16 +94,23 @@ export async function evaluateBrief(brief: MarketBrief, { client }: { client?: O
     marketEval: string
     themeComment: string
     news: { index: number; why: string }[]
+    marketNews: { index: number; why: string }[]
   }
 
   // AI가 고른 인덱스를 원본 후보(제목·링크)에 매핑 — URL 환각 방지
-  const news: SelectedNews[] = out.news
-    .map(({ index, why }): SelectedNews | null => {
-      const cand = brief.themeNews[index]
-      if (!cand) return null
-      return { title: cand.title ?? '', link: cand.link, why }
-    })
-    .filter((n): n is SelectedNews => n !== null)
+  const pick = (picks: { index: number; why: string }[], pool: MarketBrief['news']): SelectedNews[] =>
+    picks
+      .map(({ index, why }): SelectedNews | null => {
+        const cand = pool[index]
+        if (!cand) return null
+        return { title: cand.title ?? '', link: cand.link, why }
+      })
+      .filter((n): n is SelectedNews => n !== null)
 
-  return { marketEval: out.marketEval, themeComment: out.themeComment, news }
+  return {
+    marketEval: out.marketEval,
+    themeComment: out.themeComment,
+    news: pick(out.news, brief.themeNews),
+    marketNews: pick(out.marketNews, brief.news),
+  }
 }

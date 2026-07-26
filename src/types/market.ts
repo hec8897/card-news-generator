@@ -61,5 +61,6 @@ export interface SelectedNews {
 export interface MarketEval {
   marketEval: string // 오늘 코스피 시장 총평 (카드 2 하이라이트 박스 — 2줄 분량)
   themeComment: string // 오늘의 테마가 왜 그렇게 움직였는지 한 줄 (카드 4)
-  news: SelectedNews[] // 오늘의 테마 뉴스 3건 (카드 5)
+  news: SelectedNews[] // 오늘의 테마 뉴스 3건 (카드 5 상단)
+  marketNews: SelectedNews[] // 시장 전체를 움직인 뉴스 2건 (카드 5 하단)
 }
